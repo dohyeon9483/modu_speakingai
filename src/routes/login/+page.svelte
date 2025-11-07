@@ -97,13 +97,20 @@
 			</button>
 		</form>
 
-		<!-- 회원가입 버튼 -->
-		<div class="mt-4">
+		<!-- 회원가입 및 관리자 버튼 -->
+		<div class="mt-4 space-y-2">
 			<a
 				href="/signup"
 				class="block w-full text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-lg transition duration-200"
 			>
 				회원가입
+			</a>
+			<a
+				href="/admin"
+				class="block w-full text-center bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-4 rounded-lg transition duration-200"
+				title="관리자 대시보드"
+			>
+				관리자 대시보드
 			</a>
 		</div>
 	</div>
