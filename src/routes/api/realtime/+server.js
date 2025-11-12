@@ -8,7 +8,12 @@ export async function POST({ request }) {
 			return json({ error: 'OpenAI API key not configured. Please create a .env file with OPENAI_API_KEY=your_key' }, { status: 500 });
 		}
 
-		// Ephemeral client secret 생성 (초 저지연 WebRTC 연결용)
+		// 요청에서 프롬프트 가져오기 (선택 사항)
+		const body = await request.json().catch(() => ({}));
+		const instructions = body.instructions || null;
+
+		// Ephemeral client secret 생성 (WebRTC 연결용)
+		// WebRTC 방식에서는 세션 설정을 client_secret 생성 시 포함합니다.
 		const sessionConfig = {
 			session: {
 				type: 'realtime',
@@ -17,10 +22,14 @@ export async function POST({ request }) {
 					output: {
 						voice: 'alloy' // alloy, echo, fable, onyx, nova, shimmer 중 선택
 					}
-				},
-				instructions: 'You are a helpful and friendly assistant. You MUST speak ONLY in Korean. Always respond in Korean language. Never use English or any other language. Speak naturally and conversationally. Keep responses concise and engaging. 모든 대화는 반드시 한국어로만 진행합니다.'
+				}
 			}
 		};
+
+		// 프롬프트가 제공된 경우 세션 설정에 포함
+		if (instructions) {
+			sessionConfig.session.instructions = instructions;
+		}
 
 		const response = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
 			method: 'POST',

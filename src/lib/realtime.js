@@ -1,6 +1,8 @@
 /**
  * OpenAI Realtime API 관련 함수들
  */
+import { getPromptForStyle, CONVERSATION_STYLES } from './conversationStyles.js';
+import { debugStore } from './stores/debugStore.js';
 
 /**
  * Realtime 세션 상태
@@ -21,17 +23,27 @@ export function createRealtimeState() {
  * @param {function} onError - 에러 발생 시 콜백
  * @param {function} onEvent - 이벤트 발생 시 콜백
  * @param {function} onStatusUpdate - 상태 업데이트 콜백
+ * @param {string|null} selectedStyleId - 선택된 대화 스타일 ID (null이면 기본)
  */
-export async function connectRealtime(state, onError, onEvent, onStatusUpdate) {
+export async function connectRealtime(state, onError, onEvent, onStatusUpdate, selectedStyleId = null) {
 	try {
 		state.status = 'connecting';
+		debugStore.addLog({
+			type: 'info',
+			message: 'Realtime 연결 시작',
+			data: { selectedStyleId: selectedStyleId || '기본' }
+		});
 
-		// Ephemeral client secret 가져오기
+		// 프롬프트 준비
+		const instructions = getPromptForStyle(selectedStyleId, true);
+		
+		// Ephemeral client secret 가져오기 (프롬프트 포함)
 		const response = await fetch('/api/realtime', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
-			}
+			},
+			body: JSON.stringify({ instructions })
 		});
 
 		if (!response.ok) {
@@ -40,10 +52,24 @@ export async function connectRealtime(state, onError, onEvent, onStatusUpdate) {
 		}
 
 		const { clientSecret } = await response.json();
+		
+		debugStore.addLog({
+			type: 'success',
+			message: 'Client secret 생성 완료',
+			data: { 
+				styleId: selectedStyleId || '기본',
+				promptLength: instructions.length 
+			}
+		});
 
 		// WebRTC 연결 설정
 		const pc = new RTCPeerConnection({
 			iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+		});
+
+		// 데이터 채널 생성 (이벤트 및 제어 메시지용)
+		const dataChannel = pc.createDataChannel('events', {
+			ordered: true
 		});
 
 		// 마이크 스트림 가져오기
@@ -73,6 +99,140 @@ export async function connectRealtime(state, onError, onEvent, onStatusUpdate) {
 			remoteAudioElement.srcObject = remoteStream;
 			remoteAudioElement.autoplay = true;
 			remoteAudioElement.play().catch(console.error);
+			
+			debugStore.addLog({
+				type: 'success',
+				message: 'WebRTC 오디오 스트림 수신 시작'
+			});
+		};
+
+		// 데이터 채널 이벤트 처리
+		dataChannel.onopen = () => {
+			console.log('✅ WebRTC 데이터 채널 연결 성공');
+			debugStore.addLog({
+				type: 'success',
+				message: 'WebRTC 데이터 채널 연결 성공'
+			});
+			
+			// 세션 설정 확인 (프롬프트가 이미 client_secret 생성 시 포함됨)
+			console.group('🎨 대화 스타일 프롬프트 적용');
+			console.log('선택된 스타일 ID:', selectedStyleId || '(기본 - null)');
+			if (selectedStyleId && CONVERSATION_STYLES[selectedStyleId]) {
+				console.log('스타일 이름:', CONVERSATION_STYLES[selectedStyleId].label);
+				console.log('스타일 이모지:', CONVERSATION_STYLES[selectedStyleId].emoji);
+			}
+			console.log('적용된 프롬프트 (처음 300자):', instructions.substring(0, 300) + '...');
+			console.log('프롬프트 전체 길이:', instructions.length, '자');
+			console.groupEnd();
+			
+			debugStore.addLog({
+				type: 'info',
+				message: '프롬프트 적용 완료',
+				data: {
+					styleId: selectedStyleId || '기본',
+					styleName: selectedStyleId && CONVERSATION_STYLES[selectedStyleId] ? CONVERSATION_STYLES[selectedStyleId].label : '기본',
+					promptLength: instructions.length
+				}
+			});
+			
+			// 연결 완료 상태 업데이트
+			state.isConnected = true;
+			state.status = 'connected';
+			if (onStatusUpdate) {
+				onStatusUpdate({
+					status: 'connected',
+					isConnected: true,
+					isListening: true,
+					isSpeaking: false
+				});
+			}
+		};
+
+		dataChannel.onmessage = (event) => {
+			try {
+				const data = JSON.parse(event.data);
+				
+				debugStore.addLog({
+					type: 'info',
+					message: `WebRTC 데이터 채널 메시지 수신: ${data.type}`,
+					data: data
+				});
+				
+				// 에러 메시지 처리
+				if (data.type === 'error' || data.type === 'session.error') {
+					const errorMessage = data.error?.message || data.message || JSON.stringify(data);
+					console.error('❌ WebRTC 에러 메시지 수신:', errorMessage);
+					
+					debugStore.addLog({
+						type: 'error',
+						message: `WebRTC 에러: ${errorMessage}`,
+						data: data
+					});
+					
+					state.status = 'error';
+					state.isConnected = false;
+					
+					if (onStatusUpdate) {
+						onStatusUpdate({
+							status: 'error',
+							isConnected: false,
+							error: errorMessage
+						});
+					}
+					
+					if (onError) {
+						onError(errorMessage);
+					}
+					return;
+				}
+				
+				// 세션 관련 메시지 로깅
+				if (data.type === 'session.updated' || data.type === 'session.created') {
+					console.group('📥 WebRTC 응답 (세션 업데이트 완료)');
+					console.log('이벤트 타입:', data.type);
+					
+					if (data.session?.instructions) {
+						const receivedInstructions = data.session.instructions;
+						console.log('✅ 서버에서 확인된 프롬프트 (처음 200자):', receivedInstructions.substring(0, 200) + '...');
+						console.log('✅ 프롬프트 길이:', receivedInstructions.length, '자');
+						
+						if (receivedInstructions === instructions) {
+							console.log('✅ 프롬프트가 정확히 적용되었습니다!');
+							debugStore.addLog({
+								type: 'success',
+								message: '프롬프트가 정확히 적용되었습니다!',
+								data: {
+									promptLength: receivedInstructions.length
+								}
+							});
+						}
+					}
+					console.groupEnd();
+				}
+				
+				// 모든 이벤트 처리
+				handleRealtimeEvent(state, data, onStatusUpdate);
+				if (onEvent) {
+					onEvent(data);
+				}
+			} catch (error) {
+				console.error('❌ 데이터 채널 메시지 파싱 오류:', error);
+				console.error('원본 메시지:', event.data);
+				debugStore.addLog({
+					type: 'error',
+					message: '데이터 채널 메시지 파싱 오류',
+					data: { error: error.message, rawData: event.data }
+				});
+			}
+		};
+
+		dataChannel.onerror = (error) => {
+			console.error('❌ 데이터 채널 오류:', error);
+			debugStore.addLog({
+				type: 'error',
+				message: '데이터 채널 오류 발생',
+				data: { error: error.message || '알 수 없는 오류' }
+			});
 		};
 
 		// SDP offer 생성
@@ -81,6 +241,11 @@ export async function connectRealtime(state, onError, onEvent, onStatusUpdate) {
 			offerToReceiveVideo: false
 		});
 		await pc.setLocalDescription(offer);
+
+		debugStore.addLog({
+			type: 'info',
+			message: 'WebRTC SDP offer 생성 완료'
+		});
 
 		// OpenAI Realtime API에 SDP 전송
 		const sdpResponse = await fetch('https://api.openai.com/v1/realtime/calls', {
@@ -93,91 +258,64 @@ export async function connectRealtime(state, onError, onEvent, onStatusUpdate) {
 		});
 
 		if (!sdpResponse.ok) {
+			const errorText = await sdpResponse.text();
+			console.error('WebRTC 연결 실패:', errorText);
+			debugStore.addLog({
+				type: 'error',
+				message: 'WebRTC 연결 실패',
+				data: { error: errorText }
+			});
 			throw new Error('Failed to establish WebRTC connection');
 		}
 
 		const answerSdp = await sdpResponse.text();
 		const answer = { type: 'answer', sdp: answerSdp };
 		await pc.setRemoteDescription(answer);
-
-		// WebSocket 연결 (이벤트 처리용)
-		const wsUrl = `wss://api.openai.com/v1/realtime?model=gpt-realtime&client_secret=${clientSecret}`;
-		const ws = new WebSocket(wsUrl);
-
-	ws.onopen = () => {
-		// WebSocket 연결 성공 시 상태 업데이트
-			state.isConnected = true;
-			state.status = 'connected';
-			if (onStatusUpdate) {
-				onStatusUpdate({
-					status: 'connected',
-					isConnected: true,
-					isListening: true,
-					isSpeaking: false
-				});
-			}
-
-			// 세션 설정 - 한국어 강제
-			ws.send(JSON.stringify({
-				type: 'session.update',
-				session: {
-					type: 'realtime',
-					instructions: 'You are a helpful and friendly assistant. You MUST speak ONLY in Korean. Always respond in Korean language. Never use English or any other language. Speak naturally and conversationally. Keep responses concise and engaging. 모든 대화는 반드시 한국어로만 진행합니다.',
-					audio: {
-						output: {
-							voice: 'alloy'
-						}
-					}
-				}
-			}));
-		};
-
-	ws.onmessage = (event) => {
-		const data = JSON.parse(event.data);
-		handleRealtimeEvent(state, data, onStatusUpdate);
-		if (onEvent) {
-			onEvent(data);
-		}
-	};
-
-		ws.onerror = (error) => {
-			console.error('WebSocket error:', error);
-			const message = 'Realtime 연결 오류가 발생했습니다.';
-			state.status = 'disconnected';
-			state.isConnected = false;
-			
-			if (onStatusUpdate) {
-				onStatusUpdate({
-					status: 'disconnected',
-					isConnected: false,
-					error: message
-				});
-			}
-			
-			if (onError) {
-				onError(message);
-			}
-		};
-
-		ws.onclose = () => {
-			state.status = 'disconnected';
-			state.isConnected = false;
-		};
-
-		state.session = { pc, ws, micStream, audioCtx };
-		state.isConnected = true;
-		state.status = 'connected';
 		
-		// 상태 업데이트 콜백 호출 (즉시 UI 업데이트)
-		if (onStatusUpdate) {
-			onStatusUpdate({ 
-				status: 'connected', 
-				isConnected: true 
+		debugStore.addLog({
+			type: 'success',
+			message: 'WebRTC 연결 성공'
+		});
+
+		// WebRTC 연결 상태 모니터링
+		pc.oniceconnectionstatechange = () => {
+			console.log('ICE 연결 상태:', pc.iceConnectionState);
+			debugStore.addLog({
+				type: 'info',
+				message: `ICE 연결 상태: ${pc.iceConnectionState}`
 			});
-		}
+			
+			if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+				// 연결 완료
+			} else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+				state.status = 'disconnected';
+				state.isConnected = false;
+				if (onStatusUpdate) {
+					onStatusUpdate({
+						status: 'disconnected',
+						isConnected: false
+					});
+				}
+			}
+		};
+
+		pc.onconnectionstatechange = () => {
+			console.log('WebRTC 연결 상태:', pc.connectionState);
+			debugStore.addLog({
+				type: 'info',
+				message: `WebRTC 연결 상태: ${pc.connectionState}`
+			});
+		};
+
+		state.session = { pc, dataChannel, micStream, audioCtx };
 	} catch (error) {
 		console.error('Realtime 연결 실패:', error);
 		const message = error.message || 'Realtime 연결에 실패했습니다.';
+		debugStore.addLog({
+			type: 'error',
+			message: 'Realtime 연결 실패',
+			data: { error: message, stack: error.stack }
+		});
 		state.status = 'disconnected';
 		if (onError) {
 			onError(message);
@@ -280,11 +418,11 @@ function handleRealtimeEvent(state, event, onStatusUpdate) {
 export async function disconnectRealtime(state, onStatusUpdate = null) {
 	if (!state.session) return;
 	
-	const { ws, pc, micStream, audioCtx } = state.session;
+	const { dataChannel, pc, micStream, audioCtx } = state.session;
 	
-	// WebSocket 연결 종료
-	if (ws) {
-		ws.close();
+	// 데이터 채널 종료
+	if (dataChannel) {
+		dataChannel.close();
 	}
 
 	// WebRTC 연결 종료
@@ -301,6 +439,11 @@ export async function disconnectRealtime(state, onStatusUpdate = null) {
 	if (audioCtx) {
 		await audioCtx.close();
 	}
+	
+	debugStore.addLog({
+		type: 'info',
+		message: 'WebRTC 연결 종료'
+	});
 	
 	// 상태 초기화
 	state.session = null;

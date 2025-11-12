@@ -9,7 +9,8 @@ function createRealtimeStore() {
         isSpeaking: false,
         conversationText: '',
         errorMessage: '',
-        isButtonDisabled: false
+        isButtonDisabled: false,
+        selectedConversationStyle: null // 선택된 대화 스타일 ID (null = 기본)
     };
 
     const { subscribe, set, update } = writable(initialState);
@@ -38,6 +39,7 @@ function createRealtimeStore() {
                 if (updates.conversationText !== undefined) newState.conversationText = updates.conversationText;
                 if (updates.error !== undefined) newState.errorMessage = updates.error;
                 if (updates.isButtonDisabled !== undefined) newState.isButtonDisabled = updates.isButtonDisabled;
+                if (updates.selectedConversationStyle !== undefined) newState.selectedConversationStyle = updates.selectedConversationStyle;
 
                 return newState;
             });
@@ -47,6 +49,9 @@ function createRealtimeStore() {
         },
         setButtonDisabled: (disabled) => {
             update(state => ({ ...state, isButtonDisabled: disabled }));
+        },
+        setConversationStyle: (styleId) => {
+            update(state => ({ ...state, selectedConversationStyle: styleId }));
         },
         reset: () => {
             set(initialState);
