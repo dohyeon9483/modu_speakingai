@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { OPENAI_API_KEY } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request, locals }) {
@@ -9,7 +9,9 @@ export async function POST({ request, locals }) {
 			return json({ error: '인증이 필요합니다.' }, { status: 401 });
 		}
 
-		if (!OPENAI_API_KEY) {
+		const apiKey = env.OPENAI_API_KEY;
+
+		if (!apiKey) {
 			return json({ error: 'OpenAI API key not configured' }, { status: 500 });
 		}
 
@@ -41,7 +43,7 @@ export async function POST({ request, locals }) {
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {
 			method: 'POST',
 			headers: {
-				'Authorization': `Bearer ${OPENAI_API_KEY}`,
+				'Authorization': `Bearer ${apiKey}`,
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({

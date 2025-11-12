@@ -1,10 +1,12 @@
 import { json } from '@sveltejs/kit';
-import { OPENAI_API_KEY } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request }) {
 	try {
-		if (!OPENAI_API_KEY) {
+		const apiKey = env.OPENAI_API_KEY;
+
+		if (!apiKey) {
 			return json({ error: 'OpenAI API key not configured. Please create a .env file with OPENAI_API_KEY=your_key' }, { status: 500 });
 		}
 
@@ -37,7 +39,7 @@ export async function POST({ request }) {
 		const response = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
 			method: 'POST',
 			headers: {
-				Authorization: `Bearer ${OPENAI_API_KEY}`,
+				Authorization: `Bearer ${apiKey}`,
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify(sessionConfig)
