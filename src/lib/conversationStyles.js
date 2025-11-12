@@ -13,6 +13,7 @@ export const CONVERSATION_STYLES = {
 		id: 'businessBrainstorming',
 		label: '업무 브레인스토밍',
 		description: '창의적인 아이디어 도출과 문제 해결 중심',
+		longDescription: '업무 과제나 프로젝트에 새로운 아이디어를 발굴하고 싶을 때 도움이 되는 스타일입니다. 상황을 분석하고, 다양한 대안을 제시하며 실행 가능한 계획을 함께 고민해 줍니다.',
 		emoji: '💼',
 		color: 'blue',
 		prompt: `You are a professional business consultant and creative problem-solving expert. You MUST speak ONLY in Korean. 
@@ -39,6 +40,7 @@ Always respond in Korean language. Never use English or any other language. Keep
 		id: 'casualConversation',
 		label: '일상 대화',
 		description: '친근하고 자연스러운 일상적인 대화',
+		longDescription: '친구와 이야기하듯 가볍고 편안한 대화를 나누고 싶을 때 유용합니다. 소소한 하루 이야기를 나누거나 감정을 공유할 때 자연스럽게 반응해 줍니다.',
 		emoji: '☕',
 		color: 'green',
 		prompt: `You are a friendly and warm conversational partner. You MUST speak ONLY in Korean.
@@ -65,6 +67,7 @@ Always respond in Korean language. Never use English or any other language. Spea
 		id: 'funStories',
 		label: '재밌는 이야기',
 		description: '유머러스하고 재미있는 이야기',
+		longDescription: '유쾌한 이야기나 농담이 필요할 때 선택하면 좋아요. 분위기를 띄우고 가볍게 웃을 수 있는 이야기거리로 대화를 이끌어 줍니다.',
 		emoji: '🎭',
 		color: 'purple',
 		prompt: `You are a witty and entertaining storyteller. You MUST speak ONLY in Korean.
@@ -91,6 +94,7 @@ Always respond in Korean language. Never use English or any other language. Keep
 		id: 'counseling',
 		label: '고민 상담',
 		description: '공감과 지지적인 고민 상담',
+		longDescription: '속마음을 털어놓고 위로받고 싶을 때 적합합니다. 이야기를 경청하고 공감하며, 필요한 경우 조심스럽게 조언도 건네줍니다.',
 		emoji: '🤗',
 		color: 'pink',
 		prompt: `You are a compassionate and empathetic counselor. You MUST speak ONLY in Korean.
@@ -117,6 +121,7 @@ Always respond in Korean language. Never use English or any other language. Prov
 		id: 'learningAssistant',
 		label: '학습 도우미',
 		description: '교육적이고 이해하기 쉬운 학습 도움',
+		longDescription: '새로운 개념을 배우거나 어려운 내용을 이해하고 싶을 때 도움을 줍니다. 쉬운 설명과 예시로 차근차근 이해를 도와줍니다.',
 		emoji: '📚',
 		color: 'orange',
 		prompt: `You are a patient and knowledgeable educational assistant and tutor. You MUST speak ONLY in Korean.
@@ -171,5 +176,25 @@ export function getPromptForStyle(styleId, debug = false) {
  */
 export function getAllStyles() {
 	return Object.values(CONVERSATION_STYLES);
+}
+
+export function getStyleInfo(styleId) {
+    if (!styleId) {
+        return {
+            title: '기본 스타일',
+            description: '친절하고 도움이 되는 기본 대화 모드입니다.'
+        };
+    }
+    const style = CONVERSATION_STYLES[styleId];
+    if (!style) {
+        return {
+            title: '기본 스타일',
+            description: '친절하고 도움이 되는 기본 대화 모드입니다.'
+        };
+    }
+    return {
+        title: `${style.emoji} ${style.label}`,
+        description: style.description || '선택된 스타일 정보가 제공됩니다.'
+    };
 }
 

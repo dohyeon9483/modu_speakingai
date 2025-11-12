@@ -1,6 +1,6 @@
 import { supabaseClient } from '$lib/supabaseClient.js';
 import { error } from '@sveltejs/kit';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request, locals }) {
@@ -12,7 +12,7 @@ export async function POST({ request, locals }) {
 
 		const userId = locals.user.id;
 		const body = await request.json();
-		const { sessionId = uuidv4(), title } = body;
+		const { sessionId = randomUUID(), title } = body;
 
 		// 새 대화 생성
 		const { data: conversation, error: insertError } = await supabaseClient

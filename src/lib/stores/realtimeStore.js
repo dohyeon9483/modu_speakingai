@@ -10,7 +10,11 @@ function createRealtimeStore() {
         conversationText: '',
         errorMessage: '',
         isButtonDisabled: false,
-        selectedConversationStyle: null // 선택된 대화 스타일 ID (null = 기본)
+        selectedConversationStyle: null, // 선택된 대화 스타일 ID (null = 기본)
+        chatMode: 'voice', // 'voice' 또는 'text'
+        messages: [], // 대화 메시지 배열
+        currentUserInput: '', // 현재 사용자 입력 중인 텍스트
+        currentAssistantResponse: '' // 현재 AI 응답 중인 텍스트
     };
 
     const { subscribe, set, update } = writable(initialState);
@@ -40,6 +44,10 @@ function createRealtimeStore() {
                 if (updates.error !== undefined) newState.errorMessage = updates.error;
                 if (updates.isButtonDisabled !== undefined) newState.isButtonDisabled = updates.isButtonDisabled;
                 if (updates.selectedConversationStyle !== undefined) newState.selectedConversationStyle = updates.selectedConversationStyle;
+                if (updates.messages !== undefined) newState.messages = updates.messages;
+                if (updates.currentUserInput !== undefined) newState.currentUserInput = updates.currentUserInput;
+                if (updates.currentAssistantResponse !== undefined) newState.currentAssistantResponse = updates.currentAssistantResponse;
+                if (updates.chatMode !== undefined) newState.chatMode = updates.chatMode;
 
                 return newState;
             });
@@ -52,6 +60,30 @@ function createRealtimeStore() {
         },
         setConversationStyle: (styleId) => {
             update(state => ({ ...state, selectedConversationStyle: styleId }));
+        },
+        setChatMode: (mode) => {
+            update(state => ({ ...state, chatMode: mode }));
+        },
+        addMessage: (message) => {
+            update(state => ({
+                ...state,
+                messages: [...state.messages, message]
+            }));
+        },
+        updateLastMessage: (content) => {
+            update(state => {
+                const messages = [...state.messages];
+                if (messages.length > 0) {
+                    messages[messages.length - 1] = {
+                        ...messages[messages.length - 1],
+                        content
+                    };
+                }
+                return { ...state, messages };
+            });
+        },
+        clearMessages: () => {
+            update(state => ({ ...state, messages: [], currentUserInput: '', currentAssistantResponse: '' }));
         },
         reset: () => {
             set(initialState);

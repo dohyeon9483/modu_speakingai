@@ -14,10 +14,13 @@ export async function POST({ request }) {
 
 		// Ephemeral client secret 생성 (WebRTC 연결용)
 		// WebRTC 방식에서는 세션 설정을 client_secret 생성 시 포함합니다.
+		// 주의: output_modalities는 ['text'] 또는 ['audio']만 지원됩니다.
+		// 텍스트 응답이 필요하면 response.create 요청에서 별도로 지정해야 합니다.
 		const sessionConfig = {
 			session: {
 				type: 'realtime',
 				model: 'gpt-realtime',
+				output_modalities: ['audio'], // 기본은 오디오, 텍스트는 response.create에서 요청
 				audio: {
 					output: {
 						voice: 'alloy' // alloy, echo, fable, onyx, nova, shimmer 중 선택

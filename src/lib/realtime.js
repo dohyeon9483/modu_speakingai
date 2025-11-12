@@ -1,8 +1,10 @@
 /**
  * OpenAI Realtime API 관련 함수들
  */
+import { get } from 'svelte/store';
 import { getPromptForStyle, CONVERSATION_STYLES } from './conversationStyles.js';
 import { debugStore } from './stores/debugStore.js';
+import { realtimeStore } from './stores/realtimeStore.js';
 
 /**
  * Realtime 세션 상태
@@ -13,7 +15,9 @@ export function createRealtimeState() {
 		isConnected: false,
 		status: 'disconnected', // disconnected, connecting, connected, speaking, listening
 		conversationText: '',
-		transcriptBuffer: ''
+		transcriptBuffer: '',
+		currentUserInput: '', // 현재 사용자 입력 중인 텍스트
+		currentAssistantResponse: '' // 현재 AI 응답 중인 텍스트
 	};
 }
 
@@ -210,6 +214,11 @@ export async function connectRealtime(state, onError, onEvent, onStatusUpdate, s
 					console.groupEnd();
 				}
 				
+				// 디버깅: 중요한 이벤트만 로깅 (너무 많은 로그 방지)
+				if (!['response.output_audio.delta'].includes(data.type)) {
+					console.log('📥 Realtime 이벤트:', data.type, data);
+				}
+				
 				// 모든 이벤트 처리
 				handleRealtimeEvent(state, data, onStatusUpdate);
 				if (onEvent) {
@@ -308,6 +317,9 @@ export async function connectRealtime(state, onError, onEvent, onStatusUpdate, s
 		};
 
 		state.session = { pc, dataChannel, micStream, audioCtx };
+		
+		// 세션을 스토어에 저장 (연결 완료 후)
+		realtimeStore.setSession(state.session);
 	} catch (error) {
 		console.error('Realtime 연결 실패:', error);
 		const message = error.message || 'Realtime 연결에 실패했습니다.';
@@ -334,8 +346,27 @@ function handleRealtimeEvent(state, event, onStatusUpdate) {
 
 	switch (event.type) {
 		case 'response.output_text.delta':
+			console.log('📝 AI 텍스트 응답 델타:', event.delta);
 			state.transcriptBuffer += event.delta;
 			state.conversationText += event.delta;
+			state.currentAssistantResponse += event.delta;
+			// 실시간으로 마지막 메시지 업데이트
+			realtimeStore.updateStatus({
+				currentAssistantResponse: state.currentAssistantResponse
+			});
+			// 메시지가 있으면 업데이트, 없으면 새로 추가
+			const currentMessages = get(realtimeStore).messages || [];
+			if (currentMessages.length > 0 && currentMessages[currentMessages.length - 1].role === 'assistant') {
+				realtimeStore.updateLastMessage(state.currentAssistantResponse);
+			} else {
+				console.log('✅ 새 AI 메시지 추가:', state.currentAssistantResponse);
+				realtimeStore.addMessage({
+					id: `msg-${Date.now()}-${Math.random()}`,
+					role: 'assistant',
+					content: state.currentAssistantResponse,
+					timestamp: new Date().toISOString()
+				});
+			}
 			updates = {
 				conversationText: state.conversationText,
 				status: state.status
@@ -345,6 +376,15 @@ function handleRealtimeEvent(state, event, onStatusUpdate) {
 		case 'response.output_text.done':
 			state.conversationText += '\n';
 			state.transcriptBuffer = '';
+			// AI 응답 완료 - 메시지 최종 저장
+			if (state.currentAssistantResponse.trim()) {
+				const currentMessages = get(realtimeStore).messages || [];
+				if (currentMessages.length > 0 && currentMessages[currentMessages.length - 1].role === 'assistant') {
+					realtimeStore.updateLastMessage(state.currentAssistantResponse.trim());
+				}
+				state.currentAssistantResponse = '';
+				realtimeStore.updateStatus({ currentAssistantResponse: '' });
+			}
 			updates = {
 				conversationText: state.conversationText,
 				status: state.status
@@ -366,6 +406,27 @@ function handleRealtimeEvent(state, event, onStatusUpdate) {
 
 		case 'conversation.item.input_audio_transcription.completed':
 			state.status = 'speaking';
+			// 사용자 음성 입력 완료 - 메시지 추가
+			// OpenAI Realtime API에서 transcript는 event.item.input_audio_transcription.transcript에 있음
+			console.log('🎤 음성 입력 완료 이벤트:', event);
+			const userText = event.item?.input_audio_transcription?.transcript || 
+			                  event.transcript || 
+			                  event.item?.transcript || 
+			                  '';
+			console.log('📝 추출된 사용자 텍스트:', userText);
+			if (userText.trim()) {
+				state.currentUserInput = userText.trim();
+				realtimeStore.addMessage({
+					id: `msg-${Date.now()}-${Math.random()}`,
+					role: 'user',
+					content: userText.trim(),
+					timestamp: new Date().toISOString()
+				});
+				console.log('✅ 사용자 메시지 추가됨:', userText.trim());
+				state.currentUserInput = '';
+			} else {
+				console.warn('⚠️ 사용자 텍스트가 비어있습니다.');
+			}
 			updates = { 
 				status: 'speaking',
 				isListening: false,
@@ -373,10 +434,50 @@ function handleRealtimeEvent(state, event, onStatusUpdate) {
 			};
 			break;
 
+		case 'conversation.item.input_text.done':
+			// 텍스트 입력 완료 - 이미 UI에 표시되었으므로 상태만 업데이트
+			console.log('✅ 텍스트 입력 완료 이벤트:', event);
+			state.status = 'speaking';
+			updates = { 
+				status: 'speaking',
+				isListening: false,
+				isSpeaking: true
+			};
+			break;
+		
+		case 'conversation.item.added':
+			// 대화 아이템 추가됨
+			console.log('✅ 대화 아이템 추가됨:', event);
+			// 텍스트 입력인 경우 메시지가 이미 UI에 추가되었으므로 여기서는 처리하지 않음
+			break;
+		
+		case 'conversation.item.done':
+			// 대화 아이템 완료
+			console.log('✅ 대화 아이템 완료:', event);
+			// 응답 생성 대기 상태로 변경
+			state.status = 'speaking';
+			updates = { 
+				status: 'speaking',
+				isListening: false,
+				isSpeaking: true
+			};
+			break;
+		
+		case 'response.created':
+			// 응답 생성 시작
+			console.log('✅ 응답 생성 시작:', event);
+			break;
+		
+		case 'response.output_item.added':
+			// 응답 아이템 추가됨
+			console.log('✅ 응답 아이템 추가됨:', event);
+			break;
+
 		case 'session.created':
 		case 'session.updated':
 			state.status = 'connected';
 			state.isConnected = true;
+			console.log('✅ 세션 업데이트됨:', event.session?.output_modalities);
 			updates = { 
 				status: 'connected', 
 				isConnected: true,
@@ -409,6 +510,73 @@ function handleRealtimeEvent(state, event, onStatusUpdate) {
 	if (Object.keys(updates).length > 0 && onStatusUpdate) {
 		onStatusUpdate(updates);
 	}
+}
+
+/**
+ * 텍스트 메시지 전송
+ * @param {object} session - Realtime 세션 객체
+ * @param {string} text - 전송할 텍스트
+ */
+export async function sendTextMessage(session, text) {
+	if (!session || !session.dataChannel || session.dataChannel.readyState !== 'open') {
+		throw new Error('데이터 채널이 연결되지 않았습니다.');
+	}
+
+	const message = {
+		type: 'conversation.item.create',
+		item: {
+			type: 'message',
+			role: 'user',
+			content: [
+				{
+					type: 'input_text',
+					text: text
+				}
+			]
+		}
+	};
+
+	console.log('📤 텍스트 메시지 전송:', message);
+	session.dataChannel.send(JSON.stringify(message));
+	
+	// 텍스트 입력 후 응답 생성 요청 (약간의 지연 후)
+	// 텍스트 입력 시에는 텍스트 응답도 받기 위해 별도 세션 업데이트 필요
+	// 하지만 세션 레벨에서는 ['text'] 또는 ['audio']만 지원되므로,
+	// response.create에서 텍스트 출력을 명시적으로 요청
+	setTimeout(() => {
+		// 먼저 세션을 텍스트 모드로 업데이트 시도
+		const sessionUpdate = {
+			type: 'session.update',
+			session: {
+				output_modalities: ['text', 'audio']
+			}
+		};
+		console.log('📤 세션 업데이트 (텍스트+오디오):', sessionUpdate);
+		
+		// 세션 업데이트가 실패할 수 있으므로, response.create도 함께 시도
+		const responseRequest = {
+			type: 'response.create'
+		};
+		
+		try {
+			// 세션 업데이트 시도 (실패할 수 있음)
+			session.dataChannel.send(JSON.stringify(sessionUpdate));
+		} catch (error) {
+			console.warn('세션 업데이트 실패 (무시 가능):', error);
+		}
+		
+		// 응답 생성 요청
+		setTimeout(() => {
+			console.log('📤 응답 생성 요청:', responseRequest);
+			session.dataChannel.send(JSON.stringify(responseRequest));
+		}, 100);
+	}, 200);
+	
+	debugStore.addLog({
+		type: 'info',
+		message: '텍스트 메시지 전송',
+		data: { text: text.substring(0, 50) + (text.length > 50 ? '...' : '') }
+	});
 }
 
 /**
@@ -445,11 +613,13 @@ export async function disconnectRealtime(state, onStatusUpdate = null) {
 		message: 'WebRTC 연결 종료'
 	});
 	
-	// 상태 초기화
-	state.session = null;
-	state.isConnected = false;
-	state.status = 'disconnected';
-	state.transcriptBuffer = '';
+		// 상태 초기화
+		state.session = null;
+		state.isConnected = false;
+		state.status = 'disconnected';
+		state.transcriptBuffer = '';
+		state.currentUserInput = '';
+		state.currentAssistantResponse = '';
 	
 	// 상태 업데이트 콜백 호출
 	if (onStatusUpdate) {

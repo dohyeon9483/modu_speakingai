@@ -14,4 +14,5 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabaseClient = supabase; // 별칭 추가
 

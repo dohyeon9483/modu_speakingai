@@ -16,6 +16,13 @@
     };
 
     async function handleRealtimeConnect() {
+        // chatMode가 'voice'가 아니면 연결하지 않음
+        const storeState = get(realtimeStore);
+        if (storeState.chatMode !== 'voice') {
+            console.log('텍스트 모드에서는 Realtime 연결을 건너뜁니다.');
+            return;
+        }
+        
         try {
             // 상태 초기화
             realtimeStore.updateStatus({
@@ -27,15 +34,15 @@
             });
 
             // 선택된 대화 스타일 가져오기 (함수 호출 시점의 최신 값)
-            const storeState = get(realtimeStore);
-            const selectedStyleId = storeState.selectedConversationStyle;
+            const storeSnapshot = get(realtimeStore);
+            const selectedStyleId = storeSnapshot.selectedConversationStyle;
             
             // 디버깅: 연결 시점의 스타일 확인
             console.group('🔌 Realtime 연결 시작');
             console.log('📋 현재 스토어 상태:', {
                 selectedConversationStyle: selectedStyleId,
-                isConnected: storeState.isConnected,
-                status: storeState.status
+                isConnected: storeSnapshot.isConnected,
+                status: storeSnapshot.status
             });
             console.log('🎨 선택된 대화 스타일 ID:', selectedStyleId || 'null (기본 프롬프트 사용)');
             if (selectedStyleId) {
@@ -83,11 +90,8 @@
                 selectedStyleId // 선택된 스타일 ID 전달
             );
 
-            // 연결 성공 시 세션 저장 및 상태 업데이트
-            realtimeStore.setSession(state.session);
-            
-            // 연결 상태 확인
-            const connected = state.session?.ws?.readyState === WebSocket.OPEN;
+            // 연결 상태 확인 (세션은 connectRealtime 내부에서 저장됨)
+            const connected = state.session?.dataChannel?.readyState === 'open';
             
             if (connected) {
                 realtimeStore.updateStatus({
@@ -132,16 +136,26 @@
                 realtimeStore.updateStatus(updates);
             });
 
-            // 모든 상태 초기화
+            // 모든 상태 초기화 (메시지는 유지)
             state = {
                 session: null,
                 isConnected: false,
                 status: 'disconnected',
                 conversationText: '',
-                transcriptBuffer: ''
+                transcriptBuffer: '',
+                currentUserInput: '',
+                currentAssistantResponse: ''
             };
             
-            realtimeStore.reset();
+            // 메시지는 유지하고 나머지만 초기화
+            realtimeStore.updateStatus({
+                status: 'disconnected',
+                isConnected: false,
+                isListening: false,
+                isSpeaking: false,
+                conversationText: '',
+                errorMessage: ''
+            });
         } catch (error) {
             console.error('연결 종료 오류:', error);
             realtimeStore.updateStatus({
