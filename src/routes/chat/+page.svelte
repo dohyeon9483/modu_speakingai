@@ -32,10 +32,6 @@
             .catch((error) => console.error('로그아웃 오류:', error));
     }
 
-    function goToVoice() {
-        goto('/voice');
-    }
-
     function goToMyPage() {
         goto('/mypage');
     }

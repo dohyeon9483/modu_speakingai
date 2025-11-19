@@ -7,7 +7,7 @@ export async function load({ locals }) {
 		throw redirect(307, '/login');
 	}
 
-	// 로그인된 사용자는 음성 대화 페이지로 이동
-	throw redirect(302, '/voice');
+	// 로그인된 사용자는 대화 페이지로 이동
+	throw redirect(302, '/chat');
 }
 
