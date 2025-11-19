@@ -37,12 +37,16 @@
             const storeSnapshot = get(realtimeStore);
             const selectedStyleId = storeSnapshot.selectedConversationStyle;
             
+            // 이전 메시지 가져오기 (대화 이어하기용)
+            const previousMessages = storeSnapshot.messages || [];
+            
             // 디버깅: 연결 시점의 스타일 확인
             console.group('🔌 Realtime 연결 시작');
             console.log('📋 현재 스토어 상태:', {
                 selectedConversationStyle: selectedStyleId,
                 isConnected: storeSnapshot.isConnected,
-                status: storeSnapshot.status
+                status: storeSnapshot.status,
+                messageCount: previousMessages.length
             });
             console.log('🎨 선택된 대화 스타일 ID:', selectedStyleId || 'null (기본 프롬프트 사용)');
             if (selectedStyleId) {
@@ -58,6 +62,10 @@
                 }
             } else {
                 console.log('ℹ️ 기본 프롬프트가 사용됩니다.');
+            }
+            
+            if (previousMessages.length > 0) {
+                console.log('📚 이전 대화 메시지:', previousMessages.length, '개');
             }
             console.groupEnd();
 
@@ -87,7 +95,8 @@
                     }
                     realtimeStore.updateStatus(updates);
                 },
-                selectedStyleId // 선택된 스타일 ID 전달
+                selectedStyleId, // 선택된 스타일 ID 전달
+                previousMessages // 이전 메시지 전달
             );
 
             // 연결 상태 확인 (세션은 connectRealtime 내부에서 저장됨)

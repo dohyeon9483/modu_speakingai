@@ -2,6 +2,6 @@
     import { redirect } from '@sveltejs/kit';
 
     export const load = () => {
-        throw redirect(302, '/voice');
+        throw redirect(302, '/chat');
     };
 </script>

@@ -90,8 +90,20 @@
             try {
                 const messages = $realtimeStore.messages || [];
                 
-                let generatedTitle = null;
-                if (messages.length > 0) {
+                // 메시지가 하나도 없으면 대화 삭제
+                if (messages.length === 0) {
+                    console.log('🗑️ 빈 대화 감지 - 자동 삭제');
+                    try {
+                        await fetch(`/api/conversations/${conversationId}`, {
+                            method: 'DELETE'
+                        });
+                        console.log('✅ 빈 대화 삭제 완료');
+                    } catch (error) {
+                        console.error('빈 대화 삭제 오류:', error);
+                    }
+                } else {
+                    // 메시지가 있으면 제목 생성 및 종료 처리
+                    let generatedTitle = null;
                     try {
                         const titleResponse = await fetch('/api/conversations/summarize-title', {
                             method: 'POST',
@@ -107,24 +119,24 @@
                     } catch (error) {
                         console.error('제목 생성 오류:', error);
                     }
-                }
 
-                if (generatedTitle) {
-                    await fetch(`/api/conversations/${conversationId}`, {
-                        method: 'PATCH',
+                    if (generatedTitle) {
+                        await fetch(`/api/conversations/${conversationId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                action: 'update_title',
+                                title: generatedTitle 
+                            })
+                        });
+                    }
+
+                    await fetch('/api/conversations/finalize', {
+                        method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            action: 'update_title',
-                            title: generatedTitle 
-                        })
+                        body: JSON.stringify({ conversationId })
                     });
                 }
-
-                await fetch('/api/conversations/finalize', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ conversationId })
-                });
             } catch (error) {
                 console.error('대화 종료 오류:', error);
             }
@@ -311,6 +323,95 @@
         URL.revokeObjectURL(url);
     }
 
+    async function downloadSummary(event) {
+        let button = null;
+        try {
+            const messages = $realtimeStore.messages;
+            
+            if (!messages || messages.length === 0) {
+                alert('요약할 대화 내용이 없습니다.');
+                return;
+            }
+
+            // 최소 메시지 수 체크
+            if (messages.length < 4) {
+                alert('대화가 너무 짧아 요약할 수 없습니다.\n최소 2번 이상의 대화가 필요합니다.');
+                return;
+            }
+
+            // 요약 생성 중 표시
+            if (event) {
+                button = event.target.closest('button');
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = '요약 생성 중...';
+                }
+            }
+
+            console.log('📥 대화 요약 시작');
+
+            // 요약 API 호출
+            const summaryResponse = await fetch('/api/conversations/summarize-conversation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages })
+            });
+
+            console.log('📡 요약 API 응답:', summaryResponse.status);
+
+            if (!summaryResponse.ok) {
+                const errorData = await summaryResponse.json();
+                console.error('❌ 요약 생성 실패:', errorData);
+                alert(`요약 생성에 실패했습니다: ${errorData.error || '알 수 없는 오류'}`);
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = '요약 다운로드';
+                }
+                return;
+            }
+
+            const summaryData = await summaryResponse.json();
+            const summary = summaryData.summary;
+            console.log('✅ 요약 생성 완료, 길이:', summary?.length);
+
+            if (!summary) {
+                console.error('❌ 요약 내용이 비어있음');
+                alert('요약 생성에 실패했습니다.');
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = '요약 다운로드';
+                }
+                return;
+            }
+
+            // 요약 다운로드
+            const blob = new Blob([summary], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `대화요약_${new Date().toISOString().slice(0, 10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            console.log('✅ 다운로드 완료');
+
+            if (button) {
+                button.disabled = false;
+                button.textContent = '요약 다운로드';
+            }
+
+        } catch (error) {
+            console.error('❌ 요약 다운로드 오류:', error);
+            alert(`요약 다운로드 중 오류가 발생했습니다: ${error.message}`);
+            if (button) {
+                button.disabled = false;
+                button.textContent = '요약 다운로드';
+            }
+        }
+    }
+
     onMount(() => {
         // 초기 모드는 텍스트
         realtimeStore.setChatMode(chatMode);
@@ -327,13 +428,32 @@
         // 대화 목록만 로드
         loadConversations();
 
-        // 페이지 이탈 시 자동 대화 종료 및 제목 생성
+        // URL 쿼리 파라미터에서 conversation ID 확인
+        const urlParams = new URLSearchParams(window.location.search);
+        const conversationIdFromUrl = urlParams.get('conversation');
+        if (conversationIdFromUrl) {
+            console.log('📖 URL에서 대화 ID 감지:', conversationIdFromUrl);
+            loadConversation(conversationIdFromUrl);
+        }
+
+        // 페이지 이탈 시 자동 대화 종료 및 제목 생성 (또는 빈 대화 삭제)
         const handleBeforeUnload = async (event) => {
             if (conversationId) {
                 const messages = $realtimeStore.messages || [];
                 
-                // 제목 생성 및 대화 종료 (keepalive 사용)
-                if (messages.length > 0) {
+                // 메시지가 없으면 대화 삭제
+                if (messages.length === 0) {
+                    try {
+                        await fetch(`/api/conversations/${conversationId}`, {
+                            method: 'DELETE',
+                            keepalive: true
+                        });
+                        console.log('🗑️ 빈 대화 자동 삭제 (페이지 이탈)');
+                    } catch (error) {
+                        console.error('빈 대화 삭제 오류:', error);
+                    }
+                } else {
+                    // 메시지가 있으면 제목 생성 및 대화 종료 (keepalive 사용)
                     try {
                         // 제목 생성
                         const titleResponse = await fetch('/api/conversations/summarize-title', {
@@ -360,18 +480,18 @@
                     } catch (error) {
                         console.error('제목 생성 오류:', error);
                     }
-                }
 
-                // 대화 종료
-                try {
-                    await fetch('/api/conversations/finalize', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ conversationId }),
-                        keepalive: true
-                    });
-                } catch (error) {
-                    console.error('대화 종료 오류:', error);
+                    // 대화 종료
+                    try {
+                        await fetch('/api/conversations/finalize', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ conversationId }),
+                            keepalive: true
+                        });
+                    } catch (error) {
+                        console.error('대화 종료 오류:', error);
+                    }
                 }
             }
         };
@@ -396,13 +516,13 @@
     };
 </script>
 
-<div class="min-h-screen flex bg-gradient-to-br from-emerald-50 via-sky-50 to-slate-100">
+<div class="min-h-screen flex bg-gradient-to-br from-blue-50 via-sky-50 to-slate-100">
     <!-- Sidebar -->
-    <aside class="w-72 min-h-screen bg-emerald-100 border-r border-emerald-200 flex flex-col">
-        <div class="px-6 py-6 border-b border-emerald-200 flex items-center justify-between">
+    <aside class="w-72 min-h-screen bg-blue-100 border-r border-blue-200 flex flex-col">
+        <div class="px-6 py-6 border-b border-blue-200 flex items-center justify-between">
             <div>
-                <p class="text-xs uppercase tracking-wide text-emerald-700">Text Chat</p>
-                <h2 class="text-xl font-bold text-emerald-900">대화 메뉴</h2>
+                <p class="text-xs uppercase tracking-wide text-blue-700">Text Chat</p>
+                <h2 class="text-xl font-bold text-blue-900">대화 메뉴</h2>
             </div>
             <span class="text-2xl">💬</span>
         </div>
@@ -418,7 +538,7 @@
                         realtimeStore.clearMessages();
                         console.log('🆕 새 대화 준비 완료');
                     }}
-                    class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold shadow-sm transition"
+                    class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold shadow-sm transition"
                 >
                     <span>➕</span>
                     <span>새 대화 시작</span>
@@ -428,20 +548,20 @@
             <!-- 대화 목록 -->
             <div>
                 <div class="flex items-center justify-between mb-2 px-2">
-                    <h3 class="text-xs uppercase tracking-wide text-emerald-700">내 대화 목록</h3>
+                    <h3 class="text-xs uppercase tracking-wide text-blue-700">내 대화 목록</h3>
                     <button
                         type="button"
                         onclick={() => goto('/mypage?section=history')}
-                        class="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium rounded transition flex items-center gap-1"
+                        class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition flex items-center gap-1"
                     >
                         <span>✏️</span>
                         <span>편집</span>
                     </button>
                 </div>
                 {#if isLoadingConversations}
-                    <div class="text-center py-4 text-sm text-emerald-600">로딩 중...</div>
+                    <div class="text-center py-4 text-sm text-blue-600">로딩 중...</div>
                 {:else if conversations.length === 0}
-                    <div class="text-center py-4 text-sm text-emerald-600">대화 기록이 없습니다</div>
+                    <div class="text-center py-4 text-sm text-blue-600">대화 기록이 없습니다</div>
                 {:else}
                     <div class="space-y-1 max-h-64 overflow-y-auto">
                         {#each conversations as conv}
@@ -450,8 +570,8 @@
                                 onclick={() => loadConversation(conv.id)}
                                 class={`w-full text-left px-3 py-2 rounded-lg text-xs transition ${
                                     conversationId === conv.id
-                                        ? 'bg-emerald-500 text-white shadow-sm'
-                                        : 'bg-white/60 text-emerald-800 hover:bg-white/80'
+                                        ? 'bg-blue-500 text-white shadow-sm'
+                                        : 'bg-white/60 text-blue-800 hover:bg-white/80'
                                 }`}
                             >
                                 <div class="font-medium truncate">{conv.title || '제목 없음'}</div>
@@ -463,17 +583,6 @@
                     </div>
                 {/if}
             </div>
-
-            <nav class="space-y-2">
-                <button
-                    type="button"
-                    onclick={() => goto('/chat')}
-                    class="w-full flex items-center justify-between px-4 py-2 rounded-lg bg-white/60 border border-emerald-200 text-sm font-semibold text-emerald-900 shadow-sm hover:bg-white/80 transition"
-                >
-                    <span>💬 대화하기</span>
-                    <span class="text-xs">현재</span>
-                </button>
-            </nav>
 
             <div>
                 <ConversationStyleSelector />
@@ -490,20 +599,18 @@
             {/if}
         </div>
 
-        <div class="px-6 py-6 border-t border-emerald-200 space-y-3">
+        <div class="px-6 py-6 border-t border-blue-200 space-y-3">
             <button
                 onclick={() => goto('/mypage')}
-                class="w-full px-4 py-2 bg-white border border-emerald-200 text-emerald-700 font-semibold rounded-lg shadow-sm hover:bg-emerald-50 transition flex items-center justify-center gap-2"
+                class="w-full px-4 py-2 bg-white border border-blue-200 text-blue-700 font-semibold rounded-lg shadow-sm hover:bg-blue-50 transition"
             >
-                <span>👤</span>
-                <span>마이페이지</span>
+                마이페이지
             </button>
             <button
                 onclick={handleLogout}
-                class="w-full px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-lg shadow-md transition flex items-center justify-center gap-2"
+                class="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition"
             >
-                <span>🚪</span>
-                <span>로그아웃</span>
+                로그아웃
             </button>
         </div>
     </aside>
@@ -524,53 +631,54 @@
 
         <main class="flex-1">
             <div class="max-w-4xl mx-auto px-4 md:px-8 py-10 md:py-16 space-y-8">
-                <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                        <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-blue-500 flex items-center gap-3">
-                            <span class="text-4xl">{chatMode === 'voice' ? '🎙️' : '💬'}</span>
-                            <span>{chatMode === 'voice' ? '음성 대화' : '텍스트 대화'}</span>
-                        </h1>
-                        <p class="text-gray-600 mt-2 text-sm md:text-base">
-                            👋 안녕하세요, <span class="font-semibold text-gray-800">{data.user?.name || '사용자'}</span>님! {chatMode === 'voice' ? '음성으로' : '채팅으로'} 자유롭게 대화해보세요.
-                        </p>
-                    </div>
-                    
-                    <!-- 모드 전환 버튼 -->
-                    <div class="flex gap-2">
-                        <button
-                            onclick={() => {
-                                chatMode = 'text';
-                                realtimeStore.setChatMode('text');
-                                if (isRealtimeConnected) {
-                                    handleDisconnectWithSave();
-                                }
-                            }}
-                            class={`px-4 py-2 rounded-lg font-semibold transition ${
-                                chatMode === 'text'
-                                    ? 'bg-emerald-500 text-white shadow-md'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                        >
-                            💬 텍스트
-                        </button>
-                        <button
-                            onclick={() => {
-                                chatMode = 'voice';
-                                realtimeStore.setChatMode('voice');
-                            }}
-                            class={`px-4 py-2 rounded-lg font-semibold transition ${
-                                chatMode === 'voice'
-                                    ? 'bg-blue-500 text-white shadow-md'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                        >
-                            🎙️ 음성
-                        </button>
+                <header class="space-y-4">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                            <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-sky-500">
+                                {chatMode === 'voice' ? '음성 대화' : '텍스트 대화'}
+                            </h1>
+                            <p class="text-gray-600 mt-2 text-sm md:text-base">
+                                안녕하세요, <span class="font-semibold text-gray-800">{data.user?.name || '사용자'}</span>님! {chatMode === 'voice' ? '음성으로' : '채팅으로'} 자유롭게 대화해보세요.
+                            </p>
+                        </div>
+                        
+                        <!-- 모드 전환 버튼 -->
+                        <div class="flex gap-2">
+                            <button
+                                onclick={() => {
+                                    chatMode = 'text';
+                                    realtimeStore.setChatMode('text');
+                                    if (isRealtimeConnected) {
+                                        handleDisconnectWithSave();
+                                    }
+                                }}
+                                class={`px-4 py-2 rounded-lg font-semibold transition ${
+                                    chatMode === 'text'
+                                        ? 'bg-blue-500 text-white shadow-md'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                            >
+                                텍스트
+                            </button>
+                            <button
+                                onclick={() => {
+                                    chatMode = 'voice';
+                                    realtimeStore.setChatMode('voice');
+                                }}
+                                class={`px-4 py-2 rounded-lg font-semibold transition ${
+                                    chatMode === 'voice'
+                                        ? 'bg-sky-500 text-white shadow-md'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                            >
+                                음성
+                            </button>
+                        </div>
                     </div>
                 </header>
 
-                <div class="flex flex-col bg-white rounded-2xl shadow-lg overflow-hidden">
-                    <div class="flex-1 overflow-hidden">
+                <div class="flex flex-col bg-white rounded-2xl shadow-lg overflow-hidden h-[600px]">
+                    <div class="flex-1 overflow-hidden min-h-0">
                         <MessageList />
                     </div>
                     
@@ -611,25 +719,41 @@
                                     {#if isRealtimeConnected}
                                         <button
                                             onclick={handleDisconnectWithSave}
-                                            class="px-6 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold shadow-md transition flex items-center gap-2"
+                                            class="px-6 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold shadow-md transition"
                                         >
-                                            <span>🛑</span>
-                                            <span>회화 종료</span>
+                                            회화 종료
                                         </button>
                                     {:else}
                                         <button
                                             onclick={handleConnectWithSave}
-                                            class="px-6 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-md transition flex items-center gap-2"
+                                            class="px-6 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-md transition"
                                             disabled={realtimeStatus === 'connecting'}
                                         >
-                                            <span>🎙️</span>
-                                            <span>{realtimeStatus === 'connecting' ? '연결 중...' : '회화 시작'}</span>
+                                            {realtimeStatus === 'connecting' ? '연결 중...' : '회화 시작'}
                                         </button>
                                     {/if}
                                 </div>
                             </div>
                         </div>
                     {/if}
+                </div>
+
+                <!-- 다운로드 버튼 그룹 (하단) -->
+                <div class="flex gap-2 justify-end">
+                    <button
+                        onclick={(e) => downloadSummary(e)}
+                        class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg shadow-sm transition flex items-center gap-2"
+                    >
+                        <span>📄</span>
+                        <span>요약 다운로드</span>
+                    </button>
+                    <button
+                        onclick={downloadChatHistory}
+                        class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-sm transition flex items-center gap-2"
+                    >
+                        <span>💾</span>
+                        <span>전체 다운로드</span>
+                    </button>
                 </div>
             </div>
 

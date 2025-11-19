@@ -1,5 +1,5 @@
 import { supabaseClient } from '$lib/supabaseClient.js';
-import { error } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ params, locals }) {
@@ -76,5 +76,106 @@ export async function GET({ params, locals }) {
 	}
 }
 
+/** @type {import('./$types').RequestHandler} */
+export async function PATCH({ params, request, locals }) {
+	try {
+		// 사용자 인증 확인
+		if (!locals.user) {
+			return json({ error: '인증이 필요합니다.' }, { status: 401 });
+		}
 
+		const conversationId = params.id;
+		const userId = locals.user.id;
+		const body = await request.json();
+		const { action, title } = body;
 
+		if (action === 'resume') {
+			// 대화 재개: status를 'active'로 변경하고 ended_at을 NULL로
+			const { data, error: updateError } = await supabaseClient
+				.from('conversations')
+				.update({
+					status: 'active',
+					ended_at: null
+				})
+				.eq('id', conversationId)
+				.eq('user_id', userId)
+				.select()
+				.single();
+
+			if (updateError) {
+				console.error('Conversation resume error:', updateError);
+				return json({ error: '대화 재개에 실패했습니다.' }, { status: 500 });
+			}
+
+			return json({
+				success: true,
+				data
+			});
+		}
+
+		if (action === 'update_title') {
+			// 대화 제목 수정
+			if (!title) {
+				return json({ error: '제목이 필요합니다.' }, { status: 400 });
+			}
+
+			const { data, error: updateError } = await supabaseClient
+				.from('conversations')
+				.update({ title })
+				.eq('id', conversationId)
+				.eq('user_id', userId)
+				.select()
+				.single();
+
+			if (updateError) {
+				console.error('Conversation title update error:', updateError);
+				return json({ error: '제목 수정에 실패했습니다.' }, { status: 500 });
+			}
+
+			return json({
+				success: true,
+				data
+			});
+		}
+
+		return json({ error: '알 수 없는 액션입니다.' }, { status: 400 });
+
+	} catch (err) {
+		console.error('PATCH /api/conversations/[id] error:', err);
+		return json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+	}
+}
+
+/** @type {import('./$types').RequestHandler} */
+export async function DELETE({ params, locals }) {
+	try {
+		// 사용자 인증 확인
+		if (!locals.user) {
+			return json({ error: '인증이 필요합니다.' }, { status: 401 });
+		}
+
+		const conversationId = params.id;
+		const userId = locals.user.id;
+
+		// 대화 삭제 (CASCADE로 conversation_items도 자동 삭제됨)
+		const { error: deleteError } = await supabaseClient
+			.from('conversations')
+			.delete()
+			.eq('id', conversationId)
+			.eq('user_id', userId);
+
+		if (deleteError) {
+			console.error('Conversation delete error:', deleteError);
+			return json({ error: '대화 삭제에 실패했습니다.' }, { status: 500 });
+		}
+
+		return json({
+			success: true,
+			message: '대화가 삭제되었습니다.'
+		});
+
+	} catch (err) {
+		console.error('DELETE /api/conversations/[id] error:', err);
+		return json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+	}
+}

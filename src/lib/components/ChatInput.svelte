@@ -20,6 +20,14 @@
         }
 
         const textToSend = messageText.trim();
+        
+        // 텍스트 모드에서 대화가 없으면 생성
+        if (chatMode === 'text' && !session?.id) {
+            if (typeof globalThis.ensureConversation === 'function') {
+                await globalThis.ensureConversation(textToSend);
+            }
+        }
+
         messageText = '';
         isSending = true;
 
@@ -50,7 +58,28 @@
         }
     }
 
+    async function saveMessageToDB(role, content) {
+        if (!session?.id) return;
+
+        try {
+            await fetch('/api/conversations/save-item', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    conversationId: session.id,
+                    role,
+                    content
+                })
+            });
+        } catch (error) {
+            console.error('메시지 저장 오류:', error);
+        }
+    }
+
     async function sendChatMessage(text) {
+        // 사용자 메시지 저장
+        saveMessageToDB('user', text);
+
         // 현재 메시지 히스토리 가져오기
         const messages = $realtimeStore.messages || [];
         
@@ -87,6 +116,9 @@
             content: data.message,
             timestamp: new Date().toISOString()
         });
+
+        // AI 응답 저장
+        saveMessageToDB('assistant', data.message);
     }
 
     function handleKeyPress(event) {

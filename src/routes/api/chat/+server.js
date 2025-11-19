@@ -1,5 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(env.SUPABASE_DB_URL, env.SUPABASE_DB_PUBLIC_KEY);
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request, locals }) {
@@ -22,6 +25,32 @@ export async function POST({ request, locals }) {
 			return json({ error: '메시지가 필요합니다.' }, { status: 400 });
 		}
 
+		// 사용자 프로필 가져오기
+		let userProfileContext = '';
+		try {
+			const { data: profile, error } = await supabase
+				.from('users')
+				.select('age, gender, personality, occupation, characteristics')
+				.eq('id', locals.user.id)
+				.single();
+
+			if (!error && profile) {
+				const profileParts = [];
+				if (profile.age) profileParts.push(`나이: ${profile.age}세`);
+				if (profile.gender) profileParts.push(`성별: ${profile.gender}`);
+				if (profile.occupation) profileParts.push(`직업: ${profile.occupation}`);
+				if (profile.personality) profileParts.push(`성격: ${profile.personality}`);
+				if (profile.characteristics) profileParts.push(`특징/관심사: ${profile.characteristics}`);
+
+				if (profileParts.length > 0) {
+					userProfileContext = `\n\n[사용자 정보]\n${profileParts.join('\n')}\n위 정보를 참고하여 사용자에게 맞춤형 대화를 제공하세요.`;
+				}
+			}
+		} catch (error) {
+			console.error('프로필 조회 오류:', error);
+			// 프로필 조회 실패해도 대화는 계속 진행
+		}
+
 		// 프롬프트 준비 (대화 스타일에 따라)
 		let systemPrompt = "You are a helpful and friendly assistant. You MUST speak ONLY in Korean. Always respond in Korean language. Never use English or any other language. Speak naturally and conversationally. Keep responses concise and engaging.";
 		
@@ -38,6 +67,9 @@ export async function POST({ request, locals }) {
 			const { DEFAULT_PROMPT } = await import('$lib/conversationStyles.js');
 			systemPrompt = DEFAULT_PROMPT;
 		}
+
+		// 사용자 프로필 정보를 시스템 프롬프트에 추가
+		systemPrompt += userProfileContext;
 
 		// OpenAI Chat API 호출
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {

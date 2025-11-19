@@ -14,7 +14,8 @@ function createRealtimeStore() {
         chatMode: 'voice', // 'voice' 또는 'text'
         messages: [], // 대화 메시지 배열
         currentUserInput: '', // 현재 사용자 입력 중인 텍스트
-        currentAssistantResponse: '' // 현재 AI 응답 중인 텍스트
+        currentAssistantResponse: '', // 현재 AI 응답 중인 텍스트
+        conversationId: null // 현재 대화 ID (DB 저장용)
     };
 
     const { subscribe, set, update } = writable(initialState);
@@ -48,6 +49,7 @@ function createRealtimeStore() {
                 if (updates.currentUserInput !== undefined) newState.currentUserInput = updates.currentUserInput;
                 if (updates.currentAssistantResponse !== undefined) newState.currentAssistantResponse = updates.currentAssistantResponse;
                 if (updates.chatMode !== undefined) newState.chatMode = updates.chatMode;
+                if (updates.conversationId !== undefined) newState.conversationId = updates.conversationId;
 
                 return newState;
             });
@@ -84,6 +86,9 @@ function createRealtimeStore() {
         },
         clearMessages: () => {
             update(state => ({ ...state, messages: [], currentUserInput: '', currentAssistantResponse: '' }));
+        },
+        setConversationId: (conversationId) => {
+            update(state => ({ ...state, conversationId }));
         },
         reset: () => {
             set(initialState);
