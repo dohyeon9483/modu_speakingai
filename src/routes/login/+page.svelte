@@ -28,14 +28,19 @@
 			const data = await response.json();
 
 			if (!response.ok) {
-				error = data.error || '로그인에 실패했습니다.';
+				// 상세한 에러 메시지 표시
+				if (response.status === 500 && data.details) {
+					error = `${data.error}\n\n상세: ${data.details}\n\n데이터베이스 연결을 확인해주세요.`;
+				} else {
+					error = data.error || '로그인에 실패했습니다.';
+				}
 			} else {
 				// 로그인 성공 - 메인 페이지로 이동
 				goto('/');
 			}
 		} catch (err) {
-			error = '서버 오류가 발생했습니다.';
-			console.error(err);
+			error = `서버 오류가 발생했습니다: ${err.message}`;
+			console.error('로그인 오류:', err);
 		} finally {
 			loading = false;
 		}
@@ -82,8 +87,20 @@
 
 			<!-- 에러 메시지 -->
 			{#if error}
-				<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-					{error}
+				<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg whitespace-pre-line">
+					<p class="font-semibold mb-1">❌ 오류</p>
+					<p class="text-sm">{error}</p>
+					{#if error.includes('데이터베이스')}
+						<div class="mt-3 pt-3 border-t border-red-300">
+							<p class="text-xs font-semibold mb-1">해결 방법:</p>
+							<ol class="text-xs list-decimal list-inside space-y-1">
+								<li>.env 파일이 프로젝트 루트에 있는지 확인</li>
+								<li>SUPABASE_DB_URL과 SUPABASE_DB_PUBLIC_KEY가 설정되어 있는지 확인</li>
+								<li>개발 서버를 재시작</li>
+								<li><a href="/api/test-connection" target="_blank" class="underline">연결 테스트</a> 실행</li>
+							</ol>
+						</div>
+					{/if}
 				</div>
 			{/if}
 

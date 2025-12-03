@@ -38,7 +38,22 @@ export async function POST({ request }) {
 
 		if (error) {
 			console.error('Supabase error:', error);
-			return json({ error: '회원가입 중 오류가 발생했습니다.' }, { status: 500 });
+			
+			// RLS 정책 오류인 경우
+			if (error.code === '42501' || error.message?.includes('row-level security')) {
+				return json({ 
+					error: '데이터베이스 보안 정책 오류입니다.',
+					details: error.message,
+					code: error.code,
+					solution: 'Supabase Dashboard에서 RLS 정책을 설정해주세요. fix_rls_policies.sql 파일을 참고하세요.'
+				}, { status: 500 });
+			}
+			
+			return json({ 
+				error: '회원가입 중 오류가 발생했습니다.',
+				details: error.message,
+				code: error.code
+			}, { status: 500 });
 		}
 
 		return json({ 

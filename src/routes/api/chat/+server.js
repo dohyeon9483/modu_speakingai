@@ -100,10 +100,49 @@ export async function POST({ request, locals }) {
 
 		const data = await response.json();
 		const aiMessage = data.choices[0]?.message?.content || '';
+		
+		// 토큰 사용량 계산
+		const inputTokens = data.usage?.prompt_tokens || 0;
+		const outputTokens = data.usage?.completion_tokens || 0;
+		const totalTokens = data.usage?.total_tokens || 0;
+
+		// AI 응답에 대한 크레딧 차감
+		const { calculateCreditsFromTokens, deductCredits } = await import('$lib/credits.js');
+		const creditAmount = calculateCreditsFromTokens(inputTokens, outputTokens);
+		
+		// conversationId가 있으면 크레딧 차감
+		const { conversationId } = body;
+		if (conversationId && locals.user) {
+			const deductResult = await deductCredits(locals.user.id, creditAmount, {
+				conversationId: conversationId,
+				type: 'ai_response',
+				tokensUsed: totalTokens,
+				description: `AI 응답 생성: ${creditAmount} 크레딧 차감 (입력: ${inputTokens} tokens, 출력: ${outputTokens} tokens)`
+			});
+
+			if (!deductResult.success) {
+				if (deductResult.error === '크레딧이 부족합니다.') {
+					return json({
+						success: false,
+						error: '크레딧이 부족합니다.',
+						currentBalance: deductResult.currentBalance,
+						required: deductResult.required
+					}, { status: 402 });
+				}
+				console.error('크레딧 차감 실패:', deductResult.error);
+				// 크레딧 차감 실패해도 응답은 반환 (경고만)
+			}
+		}
 
 		return json({
 			success: true,
-			message: aiMessage
+			message: aiMessage,
+			usage: {
+				inputTokens,
+				outputTokens,
+				totalTokens
+			},
+			creditsDeducted: creditAmount
 		});
 
 	} catch (error) {

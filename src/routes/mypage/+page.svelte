@@ -26,6 +26,12 @@
     });
     let isLoadingProfile = $state(false);
     let isSavingProfile = $state(false);
+    
+    // 크레딧 관련 상태
+    let creditsBalance = $state(0);
+    let creditHistory = $state([]);
+    let isLoadingCredits = $state(false);
+    let isLoadingHistory = $state(false);
 
     function gotoChat() {
         goto('/chat');
@@ -348,15 +354,63 @@
         }
     }
 
+    async function loadCredits() {
+        isLoadingCredits = true;
+        try {
+            const response = await fetch('/api/credits/balance');
+            if (response.ok) {
+                const data = await response.json();
+                creditsBalance = data.credits || 0;
+            }
+        } catch (error) {
+            console.error('크레딧 조회 오류:', error);
+        } finally {
+            isLoadingCredits = false;
+        }
+    }
+
+    async function loadCreditHistory() {
+        isLoadingHistory = true;
+        try {
+            const response = await fetch('/api/credits/history?limit=20');
+            if (response.ok) {
+                const result = await response.json();
+                creditHistory = result.data || [];
+            }
+        } catch (error) {
+            console.error('크레딧 내역 조회 오류:', error);
+        } finally {
+            isLoadingHistory = false;
+        }
+    }
+
+    function gotoPayments() {
+        goto('/payments');
+    }
+
     onMount(() => {
         loadConversations();
         loadUserProfile();
+        loadCredits();
         
         // URL 쿼리 파라미터에서 section 확인
         const urlParams = new URLSearchParams(window.location.search);
         const section = urlParams.get('section');
         if (section) {
             activeSection = section;
+        }
+        
+        // 크레딧 섹션이면 내역도 로드
+        if (activeSection === 'credits') {
+            loadCreditHistory();
+        }
+    });
+    
+    // 섹션 변경 시 크레딧 내역 로드
+    $effect(() => {
+        if (activeSection === 'credits') {
+            loadCredits();
+            loadCreditHistory();
         }
     });
 </script>
@@ -399,6 +453,13 @@
                     class={`w-full text-left px-4 py-2 rounded-lg text-sm font-semibold transition ${activeSection === 'history' ? 'bg-indigo-500 text-white shadow' : 'bg-white/70 text-slate-700 hover:bg-white'}`}
                 >
                     📚 대화 기록
+                </button>
+                <button
+                    type="button"
+                    onclick={() => (activeSection = 'credits')}
+                    class={`w-full text-left px-4 py-2 rounded-lg text-sm font-semibold transition ${activeSection === 'credits' ? 'bg-indigo-500 text-white shadow' : 'bg-white/70 text-slate-700 hover:bg-white'}`}
+                >
+                    💳 크레딧 관리
                 </button>
             </div>
         </div>
@@ -570,6 +631,99 @@
                                 <p class="text-xs text-gray-600 whitespace-pre-wrap">{style.longDescription || style.description}</p>
                             </div>
                         {/each}
+                    </div>
+                </section>
+            {:else if activeSection === 'credits'}
+                <section class="bg-white rounded-2xl shadow-lg p-6 space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                            <span class="text-2xl">💳</span>
+                            크레딧 관리
+                        </h2>
+                        <button
+                            onclick={gotoPayments}
+                            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition flex items-center gap-2"
+                        >
+                            <span>➕</span>
+                            <span>크레딧 충전</span>
+                        </button>
+                    </div>
+
+                    <!-- 크레딧 잔액 -->
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-600 mb-1">현재 크레딧</p>
+                                {#if isLoadingCredits}
+                                    <div class="w-24 h-8 bg-gray-200 rounded animate-pulse"></div>
+                                {:else}
+                                    <p class="text-4xl font-bold text-blue-600">{creditsBalance.toLocaleString()}</p>
+                                {/if}
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500 mb-1">사용 가능</p>
+                                <p class="text-sm font-semibold text-gray-700">
+                                    약 {Math.floor(creditsBalance / 1.5).toLocaleString()}회 대화 가능
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 크레딧 사용 내역 -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">사용 내역</h3>
+                        {#if isLoadingHistory}
+                            <div class="text-center py-8">
+                                <div class="inline-block w-6 h-6 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                                <p class="mt-2 text-sm text-gray-600">로딩 중...</p>
+                            </div>
+                        {:else if creditHistory.length === 0}
+                            <div class="text-center py-8">
+                                <p class="text-gray-500">사용 내역이 없습니다.</p>
+                            </div>
+                        {:else}
+                            <div class="space-y-2 max-h-[400px] overflow-y-auto">
+                                {#each creditHistory as transaction}
+                                    <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex-1">
+                                                <p class="text-sm font-medium text-gray-800">
+                                                    {transaction.type === 'payment' ? '💳 결제' : 
+                                                     transaction.type === 'user_message' ? '💬 사용자 메시지' :
+                                                     transaction.type === 'ai_response' ? '🤖 AI 응답' : 
+                                                     transaction.type}
+                                                </p>
+                                                <p class="text-xs text-gray-500 mt-1">
+                                                    {transaction.description || '크레딧 사용'}
+                                                </p>
+                                                {#if transaction.tokens_used}
+                                                    <p class="text-xs text-gray-400 mt-1">
+                                                        토큰: {transaction.tokens_used.toLocaleString()}
+                                                    </p>
+                                                {/if}
+                                            </div>
+                                            <div class="text-right">
+                                                <p class={`text-sm font-semibold ${
+                                                    transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
+                                                }`}>
+                                                    {transaction.amount > 0 ? '+' : ''}{transaction.amount.toLocaleString()}
+                                                </p>
+                                                <p class="text-xs text-gray-400 mt-1">
+                                                    {new Date(transaction.created_at).toLocaleString('ko-KR')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {/each}
+                            </div>
+                        {/if}
+                    </div>
+
+                    <!-- 안내 메시지 -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p class="text-xs text-blue-800">
+                            💡 크레딧은 메시지 전송 시 자동으로 차감됩니다. 사용자 메시지 1개당 0.5 크레딧, AI 응답은 토큰 수에 따라 차감됩니다.
+                        </p>
                     </div>
                 </section>
             {:else if activeSection === 'history'}

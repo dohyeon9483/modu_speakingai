@@ -130,6 +130,42 @@
 			loading = false;
 		}
 	}
+
+	// 슈퍼 계정 토글
+	async function toggleSuperUser(userId, currentStatus) {
+		const newStatus = !currentStatus;
+		
+		if (!confirm(`${newStatus ? '슈퍼 계정으로 설정' : '일반 계정으로 변경'}하시겠습니까?\n\n슈퍼 계정은 크레딧 없이도 대화할 수 있습니다.`)) {
+			return;
+		}
+
+		loading = true;
+		result = '';
+		try {
+			const response = await fetch('/api/admin/toggle-super-user', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					userId: userId,
+					isSuperUser: newStatus
+				})
+			});
+			const data = await response.json();
+
+			if (data.error) {
+				result = `에러: ${data.error}`;
+			} else {
+				result = data.message || `성공! ${newStatus ? '슈퍼 계정으로 설정되었습니다.' : '일반 계정으로 변경되었습니다.'}`;
+				await fetchUsers(); // 목록 새로고침
+			}
+		} catch (error) {
+			result = `에러: ${error.message}`;
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 {#if !isAuthenticated}
@@ -261,7 +297,8 @@
 									<th class="text-left py-2 px-2">ID</th>
 									<th class="text-left py-2 px-2">이름</th>
 									<th class="text-left py-2 px-2">이메일</th>
-									<th class="text-left py-2 px-2">비밀번호 해시</th>
+									<th class="text-left py-2 px-2">크레딧</th>
+									<th class="text-left py-2 px-2">슈퍼 계정</th>
 									<th class="text-left py-2 px-2">생성일</th>
 									<th class="text-left py-2 px-2">작업</th>
 								</tr>
@@ -272,18 +309,43 @@
 										<td class="py-2 px-2">{user.id}</td>
 										<td class="py-2 px-2">{user.name}</td>
 										<td class="py-2 px-2">{user.email}</td>
-										<td class="py-2 px-2 font-mono text-xs break-all max-w-xs">
-											{user.password?.substring(0, 20) + '...'}
+										<td class="py-2 px-2 font-semibold {user.credits > 0 ? 'text-green-600' : 'text-gray-500'}">
+											{user.credits?.toLocaleString() || 0}
 										</td>
-										<td class="py-2 px-2">{new Date(user.created_at).toLocaleString('ko-KR')}</td>
 										<td class="py-2 px-2">
-											<button
-												onclick={() => deleteUser(user.id)}
-												disabled={loading}
-												class="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white text-sm py-1 px-3 rounded transition"
-											>
-												삭제
-											</button>
+											{#if user.is_super_user}
+												<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+													⭐ 슈퍼 계정
+												</span>
+											{:else}
+												<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+													일반
+												</span>
+											{/if}
+										</td>
+										<td class="py-2 px-2 text-xs">{new Date(user.created_at).toLocaleString('ko-KR')}</td>
+										<td class="py-2 px-2">
+											<div class="flex gap-2">
+												<button
+													onclick={() => toggleSuperUser(user.id, user.is_super_user || false)}
+													disabled={loading}
+													class={`text-sm py-1 px-3 rounded transition ${
+														user.is_super_user
+															? 'bg-gray-500 hover:bg-gray-600 text-white'
+															: 'bg-yellow-500 hover:bg-yellow-600 text-white'
+													} disabled:bg-gray-400`}
+													title={user.is_super_user ? '일반 계정으로 변경' : '슈퍼 계정으로 설정 (크레딧 없이 대화 가능)'}
+												>
+													{user.is_super_user ? '일반으로' : '⭐ 슈퍼'}
+												</button>
+												<button
+													onclick={() => deleteUser(user.id)}
+													disabled={loading}
+													class="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white text-sm py-1 px-3 rounded transition"
+												>
+													삭제
+												</button>
+											</div>
 										</td>
 									</tr>
 								{/each}

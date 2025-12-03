@@ -1,6 +1,7 @@
 <script>
     import { realtimeStore } from '$lib/stores/realtimeStore.js';
     import { sendTextMessage } from '$lib/realtime.js';
+    import PaymentButton from '$lib/components/PaymentButton.svelte';
 
     const isConnected = $derived($realtimeStore.isConnected);
     const chatMode = $derived($realtimeStore.chatMode || 'voice');
@@ -8,6 +9,20 @@
     const selectedStyle = $derived($realtimeStore.selectedConversationStyle);
     let messageText = $state('');
     let isSending = $state(false);
+    let creditError = $state(null);
+    let creditsBalance = $state(0);
+
+    async function loadCredits() {
+        try {
+            const response = await fetch('/api/credits/balance');
+            if (response.ok) {
+                const data = await response.json();
+                creditsBalance = data.credits || 0;
+            }
+        } catch (err) {
+            console.error('크레딧 조회 오류:', err);
+        }
+    }
 
     async function handleSend() {
         if (!messageText.trim() || isSending) {
@@ -19,6 +34,7 @@
             return;
         }
 
+        creditError = null;
         const textToSend = messageText.trim();
         
         // 텍스트 모드에서 대화가 없으면 생성
@@ -32,7 +48,18 @@
         isSending = true;
 
         try {
-            // 메시지를 먼저 UI에 추가
+            if (chatMode === 'text') {
+                // 텍스트 모드: 먼저 메시지 저장 (크레딧 차감)
+                await saveMessageToDB('user', textToSend);
+                
+                // 크레딧 부족으로 실패한 경우
+                if (creditError) {
+                    // UI에 추가하지 않고 에러만 표시
+                    return;
+                }
+            }
+
+            // 메시지를 UI에 추가
             realtimeStore.addMessage({
                 id: `msg-${Date.now()}-${Math.random()}`,
                 role: 'user',
@@ -47,22 +74,50 @@
                 // 텍스트 모드: Chat API 사용
                 await sendChatMessage(textToSend);
             }
+            
+            // 성공 시 크레딧 잔액 갱신
+            await loadCredits();
         } catch (error) {
             console.error('메시지 전송 오류:', error);
-            // 에러 발생 시 사용자에게 알림
-            realtimeStore.updateStatus({
-                errorMessage: '메시지 전송에 실패했습니다: ' + error.message
-            });
+            
+            // 크레딧 부족 에러 처리
+            if (error.message && error.message.includes('크레딧')) {
+                try {
+                    const errorData = JSON.parse(error.message);
+                    if (errorData.currentBalance !== undefined) {
+                        creditError = {
+                            currentBalance: errorData.currentBalance,
+                            required: errorData.required || 0.5
+                        };
+                        creditsBalance = errorData.currentBalance;
+                    }
+                } catch (e) {
+                    // JSON 파싱 실패 시 일반 에러 처리
+                }
+            }
+            
+            // 크레딧 부족이 아닌 경우에만 일반 에러 메시지 표시
+            if (!creditError) {
+                realtimeStore.updateStatus({
+                    errorMessage: '메시지 전송에 실패했습니다: ' + error.message
+                });
+            }
         } finally {
             isSending = false;
         }
     }
+    
+    // 컴포넌트 마운트 시 크레딧 로드
+    import { onMount } from 'svelte';
+    onMount(() => {
+        loadCredits();
+    });
 
     async function saveMessageToDB(role, content) {
         if (!session?.id) return;
 
         try {
-            await fetch('/api/conversations/save-item', {
+            const response = await fetch('/api/conversations/save-item', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -71,14 +126,31 @@
                     content
                 })
             });
+
+            if (!response.ok) {
+                const error = await response.json();
+                // 크레딧 부족 에러 처리
+                if (response.status === 402 && error.currentBalance !== undefined) {
+                    creditError = {
+                        currentBalance: error.currentBalance,
+                        required: error.required || 0.5
+                    };
+                    creditsBalance = error.currentBalance;
+                    throw new Error(JSON.stringify(error));
+                }
+                throw new Error(error.error || '메시지 저장에 실패했습니다.');
+            }
         } catch (error) {
             console.error('메시지 저장 오류:', error);
+            // 크레딧 부족이 아닌 경우에만 에러를 다시 throw
+            if (!creditError) {
+                throw error;
+            }
         }
     }
 
     async function sendChatMessage(text) {
-        // 사용자 메시지 저장
-        saveMessageToDB('user', text);
+        // 사용자 메시지는 이미 saveMessageToDB에서 저장됨 (텍스트 모드)
 
         // 현재 메시지 히스토리 가져오기
         const messages = $realtimeStore.messages || [];
@@ -104,6 +176,15 @@
 
         if (!response.ok) {
             const error = await response.json();
+            // 크레딧 부족 에러 처리
+            if (response.status === 402 && error.currentBalance !== undefined) {
+                creditError = {
+                    currentBalance: error.currentBalance,
+                    required: error.required || 1.0
+                };
+                creditsBalance = error.currentBalance;
+                throw new Error(JSON.stringify(error));
+            }
             throw new Error(error.error || 'AI 응답 생성에 실패했습니다.');
         }
 
@@ -130,6 +211,13 @@
 </script>
 
 <div class="border-t border-gray-200 bg-white p-4">
+    {#if creditError}
+        <PaymentButton 
+            credits={creditError.currentBalance} 
+            required={creditError.required}
+        />
+    {/if}
+    
     <div class="flex items-end gap-2">
         <div class="flex-1 relative">
             <textarea

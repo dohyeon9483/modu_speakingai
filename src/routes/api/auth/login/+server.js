@@ -20,8 +20,35 @@ export async function POST({ request, cookies }) {
 			.eq('email', email)
 			.single();
 
-		if (error || !user) {
-			console.log('❌ 사용자 없음:', email, error?.message);
+		if (error) {
+			console.error('❌ DB 조회 오류:', {
+				message: error.message,
+				code: error.code,
+				details: error.details,
+				hint: error.hint
+			});
+			
+			// DB 연결 오류인 경우
+			if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+				return json({ 
+					error: '데이터베이스 연결 오류입니다. 관리자에게 문의하세요.',
+					details: error.message 
+				}, { status: 500 });
+			}
+			
+			// 사용자 없음 (일반적인 경우)
+			if (error.code === 'PGRST116') {
+				return json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 });
+			}
+			
+			return json({ 
+				error: '데이터베이스 오류가 발생했습니다.',
+				details: error.message 
+			}, { status: 500 });
+		}
+
+		if (!user) {
+			console.log('❌ 사용자 없음:', email);
 			return json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 });
 		}
 

@@ -43,7 +43,15 @@
 			const data = await response.json();
 
 			if (!response.ok) {
-				error = data.error || '회원가입에 실패했습니다.';
+				// RLS 정책 오류인 경우 상세 안내
+				if (data.code === '42501' || data.solution) {
+					error = `${data.error}\n\n${data.details || ''}\n\n해결 방법: ${data.solution || 'Supabase Dashboard에서 RLS 정책을 설정해주세요.'}`;
+				} else {
+					error = data.error || '회원가입에 실패했습니다.';
+					if (data.details) {
+						error += `\n\n상세: ${data.details}`;
+					}
+				}
 			} else {
 				success = data.message;
 				// 2초 후 로그인 페이지로 이동
@@ -130,8 +138,20 @@
 
 			<!-- 에러 메시지 -->
 			{#if error}
-				<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-					{error}
+				<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg whitespace-pre-line">
+					<p class="font-semibold mb-1">❌ 오류</p>
+					<p class="text-sm">{error}</p>
+					{#if error.includes('RLS') || error.includes('row-level security')}
+						<div class="mt-3 pt-3 border-t border-red-300">
+							<p class="text-xs font-semibold mb-1">빠른 해결 방법:</p>
+							<ol class="text-xs list-decimal list-inside space-y-1">
+								<li>Supabase Dashboard → SQL Editor 열기</li>
+								<li><code class="bg-red-100 px-1 rounded">fix_rls_policies.sql</code> 파일 내용 실행</li>
+								<li>개발 서버 재시작</li>
+								<li>회원가입 다시 시도</li>
+							</ol>
+						</div>
+					{/if}
 				</div>
 			{/if}
 

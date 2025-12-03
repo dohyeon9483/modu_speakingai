@@ -7,6 +7,38 @@ const supabase = createClient(env.SUPABASE_DB_URL, env.SUPABASE_DB_PUBLIC_KEY);
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request, locals }) {
 	try {
+		// 사용자 인증 확인
+		if (!locals.user) {
+			return json({ error: '인증이 필요합니다.' }, { status: 401 });
+		}
+
+		// 실시간 대화 시작 전 최소 크레딧 확인 (5 크레딧)
+		// 단, 슈퍼 계정인 경우 크레딧 확인 생략
+		const { data: user, error: userError } = await supabase
+			.from('users')
+			.select('credits, is_super_user')
+			.eq('id', locals.user.id)
+			.single();
+
+		if (userError || !user) {
+			return json({ error: '사용자 정보를 찾을 수 없습니다.' }, { status: 500 });
+		}
+
+		// 슈퍼 계정인 경우 크레딧 확인 생략
+		if (!user.is_super_user) {
+			const currentCredits = user.credits || 0;
+			const minRequiredCredits = 5; // 실시간 대화 최소 필요 크레딧
+
+			if (currentCredits < minRequiredCredits) {
+				return json({
+					error: '크레딧이 부족합니다.',
+					currentBalance: currentCredits,
+					required: minRequiredCredits,
+					message: `실시간 대화를 시작하려면 최소 ${minRequiredCredits} 크레딧이 필요합니다.`
+				}, { status: 402 });
+			}
+		}
+
 		const apiKey = env.OPENAI_API_KEY;
 
 		if (!apiKey) {
