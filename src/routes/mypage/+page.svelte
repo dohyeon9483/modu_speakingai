@@ -26,12 +26,6 @@
     });
     let isLoadingProfile = $state(false);
     let isSavingProfile = $state(false);
-    
-    // 크레딧 관련 상태
-    let creditsBalance = $state(0);
-    let creditHistory = $state([]);
-    let isLoadingCredits = $state(false);
-    let isLoadingHistory = $state(false);
 
     function gotoChat() {
         goto('/chat');
@@ -354,44 +348,9 @@
         }
     }
 
-    async function loadCredits() {
-        isLoadingCredits = true;
-        try {
-            const response = await fetch('/api/credits/balance');
-            if (response.ok) {
-                const data = await response.json();
-                creditsBalance = data.credits || 0;
-            }
-        } catch (error) {
-            console.error('크레딧 조회 오류:', error);
-        } finally {
-            isLoadingCredits = false;
-        }
-    }
-
-    async function loadCreditHistory() {
-        isLoadingHistory = true;
-        try {
-            const response = await fetch('/api/credits/history?limit=20');
-            if (response.ok) {
-                const result = await response.json();
-                creditHistory = result.data || [];
-            }
-        } catch (error) {
-            console.error('크레딧 내역 조회 오류:', error);
-        } finally {
-            isLoadingHistory = false;
-        }
-    }
-
-    function gotoPayments() {
-        goto('/payments');
-    }
-
     onMount(() => {
         loadConversations();
         loadUserProfile();
-        loadCredits();
         
         // URL 쿼리 파라미터에서 section 확인
         const urlParams = new URLSearchParams(window.location.search);
@@ -399,82 +358,84 @@
         if (section) {
             activeSection = section;
         }
-        
-        // 크레딧 섹션이면 내역도 로드
-        if (activeSection === 'credits') {
-            loadCreditHistory();
-        }
-    });
-    
-    // 섹션 변경 시 크레딧 내역 로드
-    $effect(() => {
-        if (activeSection === 'credits') {
-            loadCredits();
-            loadCreditHistory();
-        }
     });
 </script>
 
-<div class="min-h-screen flex bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50">
+<div class="min-h-screen flex bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
     <!-- Sidebar -->
-    <aside class="w-72 min-h-screen bg-white/80 border-r border-slate-200 backdrop-blur-sm flex flex-col">
-        <div class="px-6 py-6 border-b border-slate-200">
-            <h2 class="text-xs uppercase tracking-wide text-slate-500">My Page</h2>
-            <h1 class="mt-1 text-2xl font-bold text-slate-900">개인 메뉴</h1>
+    <aside class="w-72 min-h-screen bg-white/80 backdrop-blur-sm border-r border-gray-200/50 flex flex-col shadow-sm">
+        <div class="px-6 py-5 border-b border-gray-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-lg font-bold shadow-md">
+                    AI
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900">마이페이지</h2>
+                    <p class="text-xs text-gray-500">Speaking AI</p>
+                </div>
+            </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-            <div class="space-y-2">
-                <p class="text-xs uppercase tracking-wide text-slate-500">마이페이지</p>
+        <div class="flex-1 overflow-y-auto px-4 py-5 space-y-6">
+            <div class="space-y-1.5">
                 <button
                     type="button"
                     onclick={() => (activeSection = 'profile')}
-                    class={`w-full text-left px-4 py-2 rounded-lg text-sm font-semibold transition ${activeSection === 'profile' ? 'bg-indigo-500 text-white shadow' : 'bg-white/70 text-slate-700 hover:bg-white'}`}
+                    class={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        activeSection === 'profile' 
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' 
+                            : 'text-gray-700 hover:bg-gray-50'
+                    }`}
                 >
                     📄 기본 정보
                 </button>
                 <button
                     type="button"
                     onclick={() => (activeSection = 'settings')}
-                    class={`w-full text-left px-4 py-2 rounded-lg text-sm font-semibold transition ${activeSection === 'settings' ? 'bg-indigo-500 text-white shadow' : 'bg-white/70 text-slate-700 hover:bg-white'}`}
+                    class={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        activeSection === 'settings' 
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' 
+                            : 'text-gray-700 hover:bg-gray-50'
+                    }`}
                 >
                     ⚙️ 환경 설정
                 </button>
                 <button
                     type="button"
                     onclick={() => (activeSection = 'styles')}
-                    class={`w-full text-left px-4 py-2 rounded-lg text-sm font-semibold transition ${activeSection === 'styles' ? 'bg-indigo-500 text-white shadow' : 'bg-white/70 text-slate-700 hover:bg-white'}`}
+                    class={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        activeSection === 'styles' 
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' 
+                            : 'text-gray-700 hover:bg-gray-50'
+                    }`}
                 >
                     🎨 대화 스타일 안내
                 </button>
                 <button
                     type="button"
                     onclick={() => (activeSection = 'history')}
-                    class={`w-full text-left px-4 py-2 rounded-lg text-sm font-semibold transition ${activeSection === 'history' ? 'bg-indigo-500 text-white shadow' : 'bg-white/70 text-slate-700 hover:bg-white'}`}
+                    class={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        activeSection === 'history' 
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' 
+                            : 'text-gray-700 hover:bg-gray-50'
+                    }`}
                 >
                     📚 대화 기록
-                </button>
-                <button
-                    type="button"
-                    onclick={() => (activeSection = 'credits')}
-                    class={`w-full text-left px-4 py-2 rounded-lg text-sm font-semibold transition ${activeSection === 'credits' ? 'bg-indigo-500 text-white shadow' : 'bg-white/70 text-slate-700 hover:bg-white'}`}
-                >
-                    💳 크레딧 관리
                 </button>
             </div>
         </div>
 
-        <div class="px-6 py-6 border-t border-slate-200 space-y-3">
+        <div class="px-4 py-5 border-t border-gray-100 space-y-2.5">
             <button
                 onclick={gotoChat}
-                class="w-full px-4 py-2 bg-white border border-blue-200 text-blue-600 font-semibold rounded-lg shadow-sm hover:bg-blue-50 transition flex items-center justify-center gap-2"
+                class="w-full px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
             >
                 <span>💬</span>
                 <span>대화하기</span>
             </button>
             <button
                 onclick={handleLogout}
-                class="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition flex items-center justify-center gap-2"
+                class="w-full px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-2"
             >
                 <span>🚪</span>
                 <span>로그아웃</span>
@@ -486,7 +447,7 @@
     <main class="flex-1">
         <div class="max-w-4xl mx-auto px-4 md:px-8 py-12 space-y-8">
             <header class="space-y-2">
-                <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-500">
+                <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
                     마이페이지
                 </h1>
                 <p class="text-gray-600 text-sm md:text-base">
@@ -495,7 +456,7 @@
             </header>
 
             {#if activeSection === 'profile'}
-                <section class="bg-white rounded-2xl shadow-lg p-6 space-y-4">
+                <section class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 space-y-4">
                     <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
                         <span class="text-2xl">📄</span>
                         기본 정보
@@ -507,7 +468,7 @@
                     </div>
                 </section>
             {:else if activeSection === 'settings'}
-                <section class="bg-white rounded-2xl shadow-lg p-6 space-y-6">
+                <section class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 space-y-6">
                     <div>
                         <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
                             <span class="text-2xl">⚙️</span>
@@ -541,7 +502,7 @@
                                         id="age"
                                         bind:value={userProfile.age}
                                         placeholder="예: 25"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
                                     />
                                 </div>
 
@@ -555,7 +516,7 @@
                                         id="gender"
                                         bind:value={userProfile.gender}
                                         placeholder="예: 남성, 여성"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
                                     />
                                 </div>
                             </div>
@@ -570,7 +531,7 @@
                                     id="occupation"
                                     bind:value={userProfile.occupation}
                                     placeholder="예: 개발자, 학생, 디자이너"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
                                 />
                             </div>
 
@@ -584,7 +545,7 @@
                                     bind:value={userProfile.personality}
                                     placeholder="예: 활발하고 긍정적인 성격, 내향적이고 신중한 편"
                                     rows="3"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                    class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 resize-none transition-all"
                                 ></textarea>
                             </div>
 
@@ -598,7 +559,7 @@
                                     bind:value={userProfile.characteristics}
                                     placeholder="예: 운동을 좋아하고 건강에 관심이 많음, 책 읽기와 영화 감상을 즐김"
                                     rows="3"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                    class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 resize-none transition-all"
                                 ></textarea>
                             </div>
 
@@ -607,7 +568,7 @@
                                 <button
                                     type="submit"
                                     disabled={isSavingProfile}
-                                    class="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 disabled:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isSavingProfile ? '저장 중...' : '프로필 저장'}
                                 </button>
@@ -616,7 +577,7 @@
                     {/if}
                 </section>
             {:else if activeSection === 'styles'}
-                <section class="bg-white rounded-2xl shadow-lg p-6 space-y-4">
+                <section class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 space-y-4">
                     <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
                         <span class="text-2xl">🎨</span>
                         대화 스타일 안내
@@ -633,101 +594,8 @@
                         {/each}
                     </div>
                 </section>
-            {:else if activeSection === 'credits'}
-                <section class="bg-white rounded-2xl shadow-lg p-6 space-y-6">
-                    <div class="flex items-center justify-between">
-                        <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                            <span class="text-2xl">💳</span>
-                            크레딧 관리
-                        </h2>
-                        <button
-                            onclick={gotoPayments}
-                            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition flex items-center gap-2"
-                        >
-                            <span>➕</span>
-                            <span>크레딧 충전</span>
-                        </button>
-                    </div>
-
-                    <!-- 크레딧 잔액 -->
-                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-6">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-600 mb-1">현재 크레딧</p>
-                                {#if isLoadingCredits}
-                                    <div class="w-24 h-8 bg-gray-200 rounded animate-pulse"></div>
-                                {:else}
-                                    <p class="text-4xl font-bold text-blue-600">{creditsBalance.toLocaleString()}</p>
-                                {/if}
-                            </div>
-                            <div class="text-right">
-                                <p class="text-xs text-gray-500 mb-1">사용 가능</p>
-                                <p class="text-sm font-semibold text-gray-700">
-                                    약 {Math.floor(creditsBalance / 1.5).toLocaleString()}회 대화 가능
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 크레딧 사용 내역 -->
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">사용 내역</h3>
-                        {#if isLoadingHistory}
-                            <div class="text-center py-8">
-                                <div class="inline-block w-6 h-6 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                                <p class="mt-2 text-sm text-gray-600">로딩 중...</p>
-                            </div>
-                        {:else if creditHistory.length === 0}
-                            <div class="text-center py-8">
-                                <p class="text-gray-500">사용 내역이 없습니다.</p>
-                            </div>
-                        {:else}
-                            <div class="space-y-2 max-h-[400px] overflow-y-auto">
-                                {#each creditHistory as transaction}
-                                    <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex-1">
-                                                <p class="text-sm font-medium text-gray-800">
-                                                    {transaction.type === 'payment' ? '💳 결제' : 
-                                                     transaction.type === 'user_message' ? '💬 사용자 메시지' :
-                                                     transaction.type === 'ai_response' ? '🤖 AI 응답' : 
-                                                     transaction.type}
-                                                </p>
-                                                <p class="text-xs text-gray-500 mt-1">
-                                                    {transaction.description || '크레딧 사용'}
-                                                </p>
-                                                {#if transaction.tokens_used}
-                                                    <p class="text-xs text-gray-400 mt-1">
-                                                        토큰: {transaction.tokens_used.toLocaleString()}
-                                                    </p>
-                                                {/if}
-                                            </div>
-                                            <div class="text-right">
-                                                <p class={`text-sm font-semibold ${
-                                                    transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
-                                                }`}>
-                                                    {transaction.amount > 0 ? '+' : ''}{transaction.amount.toLocaleString()}
-                                                </p>
-                                                <p class="text-xs text-gray-400 mt-1">
-                                                    {new Date(transaction.created_at).toLocaleString('ko-KR')}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {/each}
-                            </div>
-                        {/if}
-                    </div>
-
-                    <!-- 안내 메시지 -->
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <p class="text-xs text-blue-800">
-                            💡 크레딧은 메시지 전송 시 자동으로 차감됩니다. 사용자 메시지 1개당 0.5 크레딧, AI 응답은 토큰 수에 따라 차감됩니다.
-                        </p>
-                    </div>
-                </section>
             {:else if activeSection === 'history'}
-                <section class="bg-white rounded-2xl shadow-lg p-6 space-y-4">
+                <section class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 space-y-4">
                     <div class="flex items-center justify-between">
                         <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
                             <span class="text-2xl">📚</span>
@@ -752,13 +620,13 @@
                                     <span class="text-sm text-gray-600">{selectedIds.size}개 선택됨</span>
                                     <button
                                         onclick={downloadSelected}
-                                        class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition"
+                                        class="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-xl shadow-sm hover:shadow transition-all duration-200"
                                     >
                                         다운로드
                                     </button>
                                     <button
                                         onclick={deleteSelected}
-                                        class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition"
+                                        class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-xl shadow-sm hover:shadow transition-all duration-200"
                                     >
                                         삭제
                                     </button>
@@ -795,7 +663,7 @@
                                                 <input
                                                     type="text"
                                                     bind:value={editingTitle}
-                                                    class="w-full px-3 py-2 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
+                                                    class="w-full px-3 py-2 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 font-semibold transition-all"
                                                     placeholder="대화 제목"
                                                 />
                                             {:else}
@@ -810,38 +678,38 @@
                                             {#if editingId === conv.id}
                                                 <button
                                                     onclick={() => saveTitle(conv.id)}
-                                                    class="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-medium rounded transition"
+                                                    class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-medium rounded-xl shadow-sm hover:shadow transition-all duration-200"
                                                 >
                                                     저장
                                                 </button>
                                                 <button
                                                     onclick={cancelEdit}
-                                                    class="px-3 py-1.5 bg-gray-300 hover:bg-gray-400 text-gray-700 text-xs font-medium rounded transition"
+                                                    class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded-xl transition-all duration-200"
                                                 >
                                                     취소
                                                 </button>
                                             {:else}
                                                 <button
                                                     onclick={() => viewConversation(conv.id)}
-                                                    class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition"
+                                                    class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-medium rounded-xl shadow-sm hover:shadow transition-all duration-200"
                                                 >
                                                     보기
                                                 </button>
                                                 <button
                                                     onclick={(e) => downloadSummary(conv.id, conv.title, e)}
-                                                    class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded transition"
+                                                    class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-xl shadow-sm hover:shadow transition-all duration-200"
                                                 >
                                                     요약 다운로드
                                                 </button>
                                                 <button
                                                     onclick={() => startEdit(conv)}
-                                                    class="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-medium rounded transition"
+                                                    class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-medium rounded-xl shadow-sm hover:shadow transition-all duration-200"
                                                 >
                                                     수정
                                                 </button>
                                                 <button
                                                     onclick={() => deleteConversation(conv.id, conv.title)}
-                                                    class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded transition"
+                                                    class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-xl shadow-sm hover:shadow transition-all duration-200"
                                                 >
                                                     삭제
                                                 </button>

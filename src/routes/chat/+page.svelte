@@ -512,18 +512,22 @@
     };
 </script>
 
-<div class="min-h-screen flex bg-gradient-to-br from-blue-50 via-sky-50 to-slate-100">
+<div class="min-h-screen flex bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
     <!-- Sidebar -->
-    <aside class="w-72 min-h-screen bg-blue-100 border-r border-blue-200 flex flex-col">
-        <div class="px-6 py-6 border-b border-blue-200 flex items-center justify-between">
-            <div>
-                <p class="text-xs uppercase tracking-wide text-blue-700">Text Chat</p>
-                <h2 class="text-xl font-bold text-blue-900">대화 메뉴</h2>
+    <aside class="w-72 min-h-screen bg-white/80 backdrop-blur-sm border-r border-gray-200/50 flex flex-col shadow-sm">
+        <div class="px-6 py-5 border-b border-gray-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-lg font-bold shadow-md">
+                    AI
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900">대화</h2>
+                    <p class="text-xs text-gray-500">Speaking AI</p>
+                </div>
             </div>
-            <span class="text-2xl">💬</span>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+        <div class="flex-1 overflow-y-auto px-4 py-5 space-y-6">
             <!-- 새 대화 시작 버튼 -->
             <div>
                 <button
@@ -534,44 +538,45 @@
                         realtimeStore.clearMessages();
                         console.log('🆕 새 대화 준비 완료');
                     }}
-                    class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold shadow-sm transition"
+                    class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200"
                 >
-                    <span>➕</span>
+                    <span class="text-base">➕</span>
                     <span>새 대화 시작</span>
                 </button>
             </div>
 
             <!-- 대화 목록 -->
             <div>
-                <div class="flex items-center justify-between mb-2 px-2">
-                    <h3 class="text-xs uppercase tracking-wide text-blue-700">내 대화 목록</h3>
+                <div class="flex items-center justify-between mb-3 px-2">
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">대화 목록</h3>
                     <button
                         type="button"
                         onclick={() => goto('/mypage?section=history')}
-                        class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition flex items-center gap-1"
+                        class="px-2.5 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                     >
-                        <span>✏️</span>
-                        <span>편집</span>
+                        편집
                     </button>
                 </div>
                 {#if isLoadingConversations}
-                    <div class="text-center py-4 text-sm text-blue-600">로딩 중...</div>
+                    <div class="text-center py-6 text-sm text-gray-500">로딩 중...</div>
                 {:else if conversations.length === 0}
-                    <div class="text-center py-4 text-sm text-blue-600">대화 기록이 없습니다</div>
+                    <div class="text-center py-6 text-sm text-gray-400">대화 기록이 없습니다</div>
                 {:else}
-                    <div class="space-y-1 max-h-64 overflow-y-auto">
+                    <div class="space-y-1.5 max-h-64 overflow-y-auto">
                         {#each conversations as conv}
                             <button
                                 type="button"
                                 onclick={() => loadConversation(conv.id)}
-                                class={`w-full text-left px-3 py-2 rounded-lg text-xs transition ${
+                                class={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
                                     conversationId === conv.id
-                                        ? 'bg-blue-500 text-white shadow-sm'
-                                        : 'bg-white/60 text-blue-800 hover:bg-white/80'
+                                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
+                                        : 'text-gray-700 hover:bg-gray-50'
                                 }`}
                             >
                                 <div class="font-medium truncate">{conv.title || '제목 없음'}</div>
-                                <div class="text-[10px] opacity-75 mt-1">
+                                <div class={`text-xs mt-1 ${
+                                    conversationId === conv.id ? 'text-blue-100' : 'text-gray-400'
+                                }`}>
                                     {new Date(conv.started_at).toLocaleDateString('ko-KR')}
                                 </div>
                             </button>
@@ -585,7 +590,7 @@
             </div>
 
             {#if errorMessage}
-                <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+                <div class="bg-red-50 border border-red-200/50 rounded-xl p-4">
                     <h3 class="text-sm font-semibold text-red-800 mb-1 flex items-center gap-2">
                         <span class="text-base">⚠️</span>
                         오류 발생
@@ -595,16 +600,16 @@
             {/if}
         </div>
 
-        <div class="px-6 py-6 border-t border-blue-200 space-y-3">
+        <div class="px-4 py-5 border-t border-gray-100 space-y-2.5">
             <button
                 onclick={() => goto('/mypage')}
-                class="w-full px-4 py-2 bg-white border border-blue-200 text-blue-700 font-semibold rounded-lg shadow-sm hover:bg-blue-50 transition"
+                class="w-full px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium rounded-lg transition-colors duration-200"
             >
                 마이페이지
             </button>
             <button
                 onclick={handleLogout}
-                class="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition"
+                class="w-full px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-lg shadow-sm transition-all duration-200"
             >
                 로그아웃
             </button>
@@ -625,21 +630,21 @@
             {initializeHandlers()}
         {/if}
 
-        <main class="flex-1">
-            <div class="max-w-4xl mx-auto px-4 md:px-8 py-10 md:py-16 space-y-8">
-                <header class="space-y-4">
+        <main class="flex-1 overflow-hidden">
+            <div class="h-full flex flex-col max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8">
+                <header class="mb-6">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
-                            <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-sky-500">
+                            <h1 class="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
                                 {chatMode === 'voice' ? '음성 대화' : '텍스트 대화'}
                             </h1>
-                            <p class="text-gray-600 mt-2 text-sm md:text-base">
-                                안녕하세요, <span class="font-semibold text-gray-800">{data.user?.name || '사용자'}</span>님! {chatMode === 'voice' ? '음성으로' : '채팅으로'} 자유롭게 대화해보세요.
+                            <p class="text-gray-600 mt-1.5 text-sm md:text-base">
+                                안녕하세요, <span class="font-semibold text-gray-900">{data.user?.name || '사용자'}</span>님! {chatMode === 'voice' ? '음성으로' : '채팅으로'} 자유롭게 대화해보세요.
                             </p>
                         </div>
                         
                         <!-- 모드 전환 버튼 -->
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 bg-gray-100 p-1 rounded-xl">
                             <button
                                 onclick={() => {
                                     chatMode = 'text';
@@ -648,10 +653,10 @@
                                         handleDisconnectWithSave();
                                     }
                                 }}
-                                class={`px-4 py-2 rounded-lg font-semibold transition ${
+                                class={`px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 ${
                                     chatMode === 'text'
-                                        ? 'bg-blue-500 text-white shadow-md'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        ? 'bg-white text-gray-900 shadow-sm'
+                                        : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
                                 텍스트
@@ -661,10 +666,10 @@
                                     chatMode = 'voice';
                                     realtimeStore.setChatMode('voice');
                                 }}
-                                class={`px-4 py-2 rounded-lg font-semibold transition ${
+                                class={`px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 ${
                                     chatMode === 'voice'
-                                        ? 'bg-sky-500 text-white shadow-md'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        ? 'bg-white text-gray-900 shadow-sm'
+                                        : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
                                 음성
@@ -673,7 +678,7 @@
                     </div>
                 </header>
 
-                <div class="flex flex-col bg-white rounded-2xl shadow-lg overflow-hidden h-[600px]">
+                <div class="flex flex-col bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden flex-1 min-h-0">
                     <div class="flex-1 overflow-hidden min-h-0">
                         <MessageList />
                     </div>
@@ -683,11 +688,17 @@
                         <ChatInput />
                     {:else}
                         <!-- 음성 컨트롤 -->
-                        <div class="border-t border-gray-200 bg-gray-50 px-6 py-4">
+                        <div class="border-t border-gray-100 bg-gray-50/50 px-6 py-4">
                             <div class="flex items-center justify-between gap-4">
                                 <!-- Status Display -->
                                 <div class="flex items-center gap-3">
-                                    <div class={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isRealtimeConnected ? 'bg-green-100 text-green-700' : realtimeStatus === 'connecting' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                                    <div class={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+                                        isRealtimeConnected 
+                                            ? 'bg-green-50 text-green-700 border border-green-200' 
+                                            : realtimeStatus === 'connecting' 
+                                                ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' 
+                                                : 'bg-gray-100 text-gray-600'
+                                    }`}>
                                         <span>{isRealtimeConnected ? '✅' : realtimeStatus === 'connecting' ? '⏳' : '⛔'}</span>
                                         <span>
                                             {#if realtimeStatus === 'connecting'}
@@ -715,14 +726,14 @@
                                     {#if isRealtimeConnected}
                                         <button
                                             onclick={handleDisconnectWithSave}
-                                            class="px-6 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold shadow-md transition"
+                                            class="px-6 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200"
                                         >
                                             회화 종료
                                         </button>
                                     {:else}
                                         <button
                                             onclick={handleConnectWithSave}
-                                            class="px-6 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-md transition"
+                                            class="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                             disabled={realtimeStatus === 'connecting'}
                                         >
                                             {realtimeStatus === 'connecting' ? '연결 중...' : '회화 시작'}
@@ -735,17 +746,17 @@
                 </div>
 
                 <!-- 다운로드 버튼 그룹 (하단) -->
-                <div class="flex gap-2 justify-end">
+                <div class="flex gap-2 justify-end mt-4">
                     <button
                         onclick={(e) => downloadSummary(e)}
-                        class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg shadow-sm transition flex items-center gap-2"
+                        class="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200 flex items-center gap-2"
                     >
                         <span>📄</span>
                         <span>요약 다운로드</span>
                     </button>
                     <button
                         onclick={downloadChatHistory}
-                        class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-sm transition flex items-center gap-2"
+                        class="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200 flex items-center gap-2"
                     >
                         <span>💾</span>
                         <span>전체 다운로드</span>

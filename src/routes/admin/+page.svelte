@@ -130,48 +130,23 @@
 			loading = false;
 		}
 	}
-
-	// 슈퍼 계정 토글
-	async function toggleSuperUser(userId, currentStatus) {
-		const newStatus = !currentStatus;
-		
-		if (!confirm(`${newStatus ? '슈퍼 계정으로 설정' : '일반 계정으로 변경'}하시겠습니까?\n\n슈퍼 계정은 크레딧 없이도 대화할 수 있습니다.`)) {
-			return;
-		}
-
-		loading = true;
-		result = '';
-		try {
-			const response = await fetch('/api/admin/toggle-super-user', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					userId: userId,
-					isSuperUser: newStatus
-				})
-			});
-			const data = await response.json();
-
-			if (data.error) {
-				result = `에러: ${data.error}`;
-			} else {
-				result = data.message || `성공! ${newStatus ? '슈퍼 계정으로 설정되었습니다.' : '일반 계정으로 변경되었습니다.'}`;
-				await fetchUsers(); // 목록 새로고침
-			}
-		} catch (error) {
-			result = `에러: ${error.message}`;
-		} finally {
-			loading = false;
-		}
-	}
 </script>
 
 {#if !isAuthenticated}
 	<!-- 관리자 로그인 -->
-	<div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center px-4">
-		<div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+	<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30 flex items-center justify-center px-4 relative">
+		<!-- 상단 우측 버튼 -->
+		<div class="absolute top-6 right-6">
+			<a
+				href="/"
+				class="w-10 h-10 flex items-center justify-center bg-white/80 hover:bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-gray-700 hover:text-gray-900"
+				title="홈으로 돌아가기"
+			>
+				<span class="text-xl">🏠</span>
+			</a>
+		</div>
+
+		<div class="max-w-md w-full bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
 			<div class="text-center mb-8">
 				<div class="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
 					<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -192,7 +167,7 @@
 						id="password"
 						bind:value={password}
 						placeholder="관리자 비밀번호"
-						class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+						class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
 					/>
 				</div>
 
@@ -205,13 +180,13 @@
 				<div class="flex gap-3">
 					<button
 						type="submit"
-						class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg"
+						class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg"
 					>
 						인증
 					</button>
 					<a
 						href="/"
-						class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-lg transition duration-200"
+						class="flex-1 text-center bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold py-3 px-4 rounded-xl transition-all duration-200 shadow-sm hover:shadow"
 					>
 						취소
 					</a>
@@ -221,7 +196,7 @@
 	</div>
 {:else}
 	<!-- 관리자 대시보드 -->
-	<div class="min-h-screen bg-gray-100 py-8 px-4">
+	<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30 py-8 px-4">
 		<div class="max-w-6xl mx-auto">
 			<!-- 헤더 -->
 			<div class="flex justify-between items-center mb-8">
@@ -230,13 +205,13 @@
 					<button
 						onclick={fetchUsers}
 						disabled={loading}
-						class="px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-medium rounded-lg transition"
+						class="px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-medium rounded-xl shadow-sm hover:shadow transition-all duration-200"
 					>
 						새로고침
 					</button>
 					<button
 						onclick={handleLogout}
-						class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition"
+						class="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium rounded-xl shadow-sm hover:shadow transition-all duration-200"
 					>
 						돌아가기
 					</button>
@@ -244,32 +219,32 @@
 			</div>
 
 			<!-- 사용자 추가 폼 -->
-			<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+			<div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
 				<h2 class="text-xl font-semibold mb-4">새 사용자 추가</h2>
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
 					<input
 						type="text"
 						bind:value={newName}
 						placeholder="이름"
-						class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
 					/>
 					<input
 						type="email"
 						bind:value={newEmail}
 						placeholder="이메일"
-						class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
 					/>
 					<input
 						type="password"
 						bind:value={newPassword}
 						placeholder="비밀번호"
-						class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
 					/>
 				</div>
 				<button
 					onclick={addUser}
 					disabled={loading}
-					class="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-md transition"
+					class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-semibold py-2.5 px-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 disabled:shadow-sm"
 				>
 					{loading ? '처리 중...' : '사용자 추가'}
 				</button>
@@ -278,7 +253,7 @@
 			<!-- 결과 메시지 -->
 			{#if result}
 				<div
-					class="bg-white rounded-lg shadow-md p-4 mb-6 {result.includes('에러')
+					class="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 mb-6 {result.includes('에러')
 						? 'border-l-4 border-red-500'
 						: 'border-l-4 border-green-500'}"
 				>
@@ -288,7 +263,7 @@
 
 			<!-- 사용자 목록 -->
 			{#if users.length > 0}
-				<div class="bg-white rounded-lg shadow-md p-6">
+				<div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
 					<h2 class="text-xl font-semibold mb-4">사용자 목록 ({users.length}명)</h2>
 					<div class="overflow-x-auto">
 						<table class="w-full text-sm">
@@ -297,8 +272,7 @@
 									<th class="text-left py-2 px-2">ID</th>
 									<th class="text-left py-2 px-2">이름</th>
 									<th class="text-left py-2 px-2">이메일</th>
-									<th class="text-left py-2 px-2">크레딧</th>
-									<th class="text-left py-2 px-2">슈퍼 계정</th>
+									<th class="text-left py-2 px-2">비밀번호 해시</th>
 									<th class="text-left py-2 px-2">생성일</th>
 									<th class="text-left py-2 px-2">작업</th>
 								</tr>
@@ -309,43 +283,18 @@
 										<td class="py-2 px-2">{user.id}</td>
 										<td class="py-2 px-2">{user.name}</td>
 										<td class="py-2 px-2">{user.email}</td>
-										<td class="py-2 px-2 font-semibold {user.credits > 0 ? 'text-green-600' : 'text-gray-500'}">
-											{user.credits?.toLocaleString() || 0}
+										<td class="py-2 px-2 font-mono text-xs break-all max-w-xs">
+											{user.password?.substring(0, 20) + '...'}
 										</td>
+										<td class="py-2 px-2">{new Date(user.created_at).toLocaleString('ko-KR')}</td>
 										<td class="py-2 px-2">
-											{#if user.is_super_user}
-												<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-													⭐ 슈퍼 계정
-												</span>
-											{:else}
-												<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
-													일반
-												</span>
-											{/if}
-										</td>
-										<td class="py-2 px-2 text-xs">{new Date(user.created_at).toLocaleString('ko-KR')}</td>
-										<td class="py-2 px-2">
-											<div class="flex gap-2">
-												<button
-													onclick={() => toggleSuperUser(user.id, user.is_super_user || false)}
-													disabled={loading}
-													class={`text-sm py-1 px-3 rounded transition ${
-														user.is_super_user
-															? 'bg-gray-500 hover:bg-gray-600 text-white'
-															: 'bg-yellow-500 hover:bg-yellow-600 text-white'
-													} disabled:bg-gray-400`}
-													title={user.is_super_user ? '일반 계정으로 변경' : '슈퍼 계정으로 설정 (크레딧 없이 대화 가능)'}
-												>
-													{user.is_super_user ? '일반으로' : '⭐ 슈퍼'}
-												</button>
-												<button
-													onclick={() => deleteUser(user.id)}
-													disabled={loading}
-													class="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white text-sm py-1 px-3 rounded transition"
-												>
-													삭제
-												</button>
-											</div>
+											<button
+												onclick={() => deleteUser(user.id)}
+												disabled={loading}
+												class="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white text-sm py-1.5 px-3 rounded-xl shadow-sm hover:shadow transition-all duration-200"
+											>
+												삭제
+											</button>
 										</td>
 									</tr>
 								{/each}

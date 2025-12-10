@@ -28,27 +28,40 @@
 			const data = await response.json();
 
 			if (!response.ok) {
-				// 상세한 에러 메시지 표시
-				if (response.status === 500 && data.details) {
-					error = `${data.error}\n\n상세: ${data.details}\n\n데이터베이스 연결을 확인해주세요.`;
-				} else {
-					error = data.error || '로그인에 실패했습니다.';
-				}
+				error = data.error || '로그인에 실패했습니다.';
 			} else {
 				// 로그인 성공 - 메인 페이지로 이동
 				goto('/');
 			}
 		} catch (err) {
-			error = `서버 오류가 발생했습니다: ${err.message}`;
-			console.error('로그인 오류:', err);
+			error = '서버 오류가 발생했습니다.';
+			console.error(err);
 		} finally {
 			loading = false;
 		}
 	}
 </script>
 
-<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
-	<div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30 flex items-center justify-center px-4 relative">
+	<!-- 상단 우측 버튼들 -->
+	<div class="absolute top-6 right-6 flex items-center gap-3">
+		<a
+			href="/"
+			class="w-10 h-10 flex items-center justify-center bg-white/80 hover:bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-gray-700 hover:text-gray-900"
+			title="홈으로 돌아가기"
+		>
+			<span class="text-xl">🏠</span>
+		</a>
+		<a
+			href="/admin"
+			class="w-10 h-10 flex items-center justify-center bg-white/80 hover:bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-gray-700 hover:text-gray-900"
+			title="관리자 대시보드"
+		>
+			<span class="text-xl">⚙️</span>
+		</a>
+	</div>
+
+	<div class="max-w-md w-full bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
 		<div class="text-center mb-8">
 			<h1 class="text-3xl font-bold text-gray-900 mb-2">로그인</h1>
 			<p class="text-gray-600">AI 실시간 회화 서비스</p>
@@ -66,7 +79,7 @@
 					bind:value={email}
 					placeholder="example@email.com"
 					disabled={loading}
-					class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+					class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed transition-all"
 				/>
 			</div>
 
@@ -81,26 +94,14 @@
 					bind:value={password}
 					placeholder="비밀번호를 입력하세요"
 					disabled={loading}
-					class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+					class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed transition-all"
 				/>
 			</div>
 
 			<!-- 에러 메시지 -->
 			{#if error}
-				<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg whitespace-pre-line">
-					<p class="font-semibold mb-1">❌ 오류</p>
-					<p class="text-sm">{error}</p>
-					{#if error.includes('데이터베이스')}
-						<div class="mt-3 pt-3 border-t border-red-300">
-							<p class="text-xs font-semibold mb-1">해결 방법:</p>
-							<ol class="text-xs list-decimal list-inside space-y-1">
-								<li>.env 파일이 프로젝트 루트에 있는지 확인</li>
-								<li>SUPABASE_DB_URL과 SUPABASE_DB_PUBLIC_KEY가 설정되어 있는지 확인</li>
-								<li>개발 서버를 재시작</li>
-								<li><a href="/api/test-connection" target="_blank" class="underline">연결 테스트</a> 실행</li>
-							</ol>
-						</div>
-					{/if}
+				<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+					{error}
 				</div>
 			{/if}
 
@@ -108,26 +109,19 @@
 			<button
 				type="submit"
 				disabled={loading}
-				class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg"
+				class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg disabled:shadow-sm"
 			>
 				{loading ? '로그인 중...' : '로그인'}
 			</button>
 		</form>
 
-		<!-- 회원가입 및 관리자 버튼 -->
-		<div class="mt-4 space-y-2">
+		<!-- 회원가입 버튼 -->
+		<div class="mt-4">
 			<a
 				href="/signup"
-				class="block w-full text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-lg transition duration-200"
+				class="block w-full text-center bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold py-3 px-4 rounded-xl transition-all duration-200 shadow-sm hover:shadow"
 			>
 				회원가입
-			</a>
-			<a
-				href="/admin"
-				class="block w-full text-center bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-4 rounded-lg transition duration-200"
-				title="관리자 대시보드"
-			>
-				관리자 대시보드
 			</a>
 		</div>
 	</div>

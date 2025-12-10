@@ -43,15 +43,7 @@
 			const data = await response.json();
 
 			if (!response.ok) {
-				// RLS 정책 오류인 경우 상세 안내
-				if (data.code === '42501' || data.solution) {
-					error = `${data.error}\n\n${data.details || ''}\n\n해결 방법: ${data.solution || 'Supabase Dashboard에서 RLS 정책을 설정해주세요.'}`;
-				} else {
-					error = data.error || '회원가입에 실패했습니다.';
-					if (data.details) {
-						error += `\n\n상세: ${data.details}`;
-					}
-				}
+				error = data.error || '회원가입에 실패했습니다.';
 			} else {
 				success = data.message;
 				// 2초 후 로그인 페이지로 이동
@@ -68,8 +60,19 @@
 	}
 </script>
 
-<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
-	<div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30 flex items-center justify-center px-4 relative">
+	<!-- 상단 우측 버튼 -->
+	<div class="absolute top-6 right-6">
+		<a
+			href="/"
+			class="w-10 h-10 flex items-center justify-center bg-white/80 hover:bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-gray-700 hover:text-gray-900"
+			title="홈으로 돌아가기"
+		>
+			<span class="text-xl">🏠</span>
+		</a>
+	</div>
+
+	<div class="max-w-md w-full bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
 		<div class="text-center mb-8">
 			<h1 class="text-3xl font-bold text-gray-900 mb-2">회원가입</h1>
 			<p class="text-gray-600">AI 실시간 회화 서비스에 가입하세요</p>
@@ -87,7 +90,7 @@
 					bind:value={name}
 					placeholder="홍길동"
 					disabled={loading}
-					class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+					class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed transition-all"
 				/>
 			</div>
 
@@ -102,7 +105,7 @@
 					bind:value={email}
 					placeholder="example@email.com"
 					disabled={loading}
-					class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+					class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed transition-all"
 				/>
 			</div>
 
@@ -117,7 +120,7 @@
 					bind:value={password}
 					placeholder="최소 4자 이상"
 					disabled={loading}
-					class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+					class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed transition-all"
 				/>
 			</div>
 
@@ -132,26 +135,14 @@
 					bind:value={confirmPassword}
 					placeholder="비밀번호를 다시 입력하세요"
 					disabled={loading}
-					class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+					class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed transition-all"
 				/>
 			</div>
 
 			<!-- 에러 메시지 -->
 			{#if error}
-				<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg whitespace-pre-line">
-					<p class="font-semibold mb-1">❌ 오류</p>
-					<p class="text-sm">{error}</p>
-					{#if error.includes('RLS') || error.includes('row-level security')}
-						<div class="mt-3 pt-3 border-t border-red-300">
-							<p class="text-xs font-semibold mb-1">빠른 해결 방법:</p>
-							<ol class="text-xs list-decimal list-inside space-y-1">
-								<li>Supabase Dashboard → SQL Editor 열기</li>
-								<li><code class="bg-red-100 px-1 rounded">fix_rls_policies.sql</code> 파일 내용 실행</li>
-								<li>개발 서버 재시작</li>
-								<li>회원가입 다시 시도</li>
-							</ol>
-						</div>
-					{/if}
+				<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+					{error}
 				</div>
 			{/if}
 
@@ -166,7 +157,7 @@
 			<button
 				type="submit"
 				disabled={loading}
-				class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg"
+				class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg disabled:shadow-sm"
 			>
 				{loading ? '처리 중...' : '회원가입'}
 			</button>
